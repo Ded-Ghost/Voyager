@@ -1,177 +1,87 @@
-# VOYAGER — Travel Intelligence System
-### Microsoft AI Build Challenge · v2.5
+# VOYAGER India — AI Travel Intelligence System
 
-A persistent, command-driven AI agent system. Type natural-language commands in the
-terminal or the holographic web dashboard. Click any country on the globe to monitor it.
-The agent does real work on your local machine — file system, clipboard, calendar files,
-desktop notifications, voice output.
+> **Microsoft AI Build Challenge** · Multi-agent system for India-focused travel intelligence
 
----
+## Architecture
 
-## Boot it
+VOYAGER India is a multi-agent system that monitors travel conditions across Indian cities in real-time.
+
+### Agent Network (5 Agents)
+
+| Agent | Role | Status |
+|---|---|---|
+| **Orchestrator** | Central intelligence. Interprets commands, coordinates all agents. | ✅ Active |
+| **Weather & Event Monitor** | Continuously tracks weather, AQI, cyclones, and flight delays for Indian cities. | ✅ Active |
+| **Dynamic Re-Router** | Activates on disruptions. Coordinates with Planner/Booking to find alternative Indian routes (trains, alternate flights). | ✅ Active |
+| **Itinerary Planner** | Drafts day-by-day schedules based on preferences, budget, and Indian festivals/events. | 🔗 Partner |
+| **Booking & Logistics** | Finds flights (IndiGo, Air India, Vistara), trains (Rajdhani, Vande Bharat), hotels. | 🔗 Partner |
+
+### India-Specific Features
+
+- **Interactive holographic India map** — tap any city to inspect conditions
+- **10 major Indian airports** monitored: DEL, BOM, BLR, MAA, CCU, HYD, COK, AMD, PNQ, GOI
+- **Monsoon / Cyclone awareness** — Bay of Bengal & Arabian Sea tracking
+- **AQI critical for Delhi/Mumbai** — hazardous air quality alerts (PM2.5/PM10)
+- **Fog delay detection** — North India winter fog flight delays
+- **Indian festival awareness** — Diwali, Holi, IPL, Navratri, Kumbh Mela
+- **Domestic airlines** — IndiGo, Air India, SpiceJet, Vistara, Akasa Air
+- **Indian Railways** — Rajdhani, Shatabdi, Vande Bharat as fallback routes
+
+## Setup
 
 ```bash
+# 1. Clone & install
+git clone <repo>
+cd voyager-agents
 npm install
-cp .env.example .env       # add ANTHROPIC_API_KEY
-node index.js              # ← that's it
+
+# 2. Get your FREE Gemini API key
+# Visit: https://aistudio.google.com/apikey
+# Copy the key
+
+# 3. Configure
+cp .env.example .env
+# Edit .env → paste your GEMINI_API_KEY
+
+# 4. Launch
+npm start
+# Opens dashboard at http://localhost:7777
 ```
 
-VOYAGER comes online with:
-- **Holographic dashboard** at http://localhost:7777 (auto-opens in your browser)
-- **Interactive shell** in your terminal: `VOYAGER ▸ `
-- **Voice output** speaking key messages aloud (via system TTS)
+## AI API — Zero Cost
 
-Both surfaces accept the same natural-language commands and stay in sync.
+**Google Gemini 2.0 Flash** (recommended, primary):
+- Completely FREE tier — no credit card needed
+- 15 RPM, 1M tokens/day free
+- Excellent tool-use / function-calling support
+- Get key: https://aistudio.google.com/apikey
 
----
+**Groq** (fallback):
+- Free tier available with rate limits
+- LLaMA 3.3 70B model
+- Get key: https://console.groq.com
 
-## Talk to it
+## Usage
 
-Just type in plain English — at the terminal prompt or in the dashboard command bar.
-Or click any country on the spinning globe to monitor it instantly.
+### From the Dashboard (GUI)
+1. **Click any city pin** on the India map → auto-inspects that city
+2. **Quick Inspect buttons** on the left panel for major cities
+3. **Command bar** at the bottom for natural language commands
 
+### From the Shell (CLI)
 ```
-VOYAGER ▸ monitor Tokyo for next week
-VOYAGER ▸ what's the air quality in Delhi
-VOYAGER ▸ any earthquakes near Istanbul
-VOYAGER ▸ save Paris trip Jun 15-20 to my calendar
-VOYAGER ▸ copy the alert summary to clipboard
-VOYAGER ▸ open the alerts file
-VOYAGER ▸ show me the current status
-VOYAGER ▸ force a disruption test
-VOYAGER ▸ go quiet
-VOYAGER ▸ speak again
-```
-
----
-
-## What it can actually do on your machine
-
-| Tool | What |
-|---|---|
-| `fetch_weather` | Open-Meteo + wttr.in fallback (live forecasts, no API key) |
-| `fetch_air_quality` | Real-time AQI, PM2.5, PM10 from Open-Meteo |
-| `check_seismic_activity` | USGS earthquake feed within 500km radius |
-| `check_flight_delays` | AviationStack (if key set) |
-| `search_local_events` | Ticketmaster (if key set) |
-| `compare_with_memory` | Detects deltas vs previous runs for same destination |
-| `write_alert_log` | Persists to `data/alerts.json` |
-| `write_monitoring_state` | Updates `data/monitoring-state.json` |
-| `signal_rerouter` | Writes `data/disruption-signal.json` (IPC to Re-Router) |
-| `send_system_notification` | Native Windows/macOS/Linux desktop notification |
-| `speak` | System TTS — `say` / PowerShell / `spd-say` |
-| `set_voice` | Toggle TTS at runtime |
-| `write_clipboard` / `read_clipboard` | OS clipboard access |
-| `open_file_or_app` | Open files, folders, apps, URLs cross-platform |
-| `generate_calendar` | Writes `.ics` to `data/calendars/` — double-click to import |
-| `play_sound_cue` | Triggers UI sound effects on the dashboard |
-| `read_monitoring_state` / `read_recent_alerts` | Read state back out |
-
----
-
-## The dashboard
-
-Open at http://localhost:7777. It's a single page with:
-
-- **3D globe** (dark Earth, cyan atmosphere) — slowly rotates in standby
-- **Click any country** → fires `monitor <country>` automatically
-- **Pin drop + camera lock-on** when a destination is monitored
-- **Pulsing red rings** at earthquake epicenters from the USGS feed
-- **HUD panels** — agent network, telemetry, forecast, AQI, seismic
-- **Activity feed** — every tool call, every reply, in real time
-- **Command bar** at the bottom — type commands here just like the terminal
-- **Voice bubble** — what VOYAGER is saying right now
-- **Sound effects** (toggleable) — boot chime, lock-on sweep, alert beeps
-- **Voice mute toggle** — top-right mic icon
-
-Endpoints:
-- `GET /`             — dashboard
-- `GET /health`       — uptime, connected clients
-- `GET /api/state`    — JSON state snapshot
-- `WS  /`             — live event stream + incoming commands
-
----
-
-## How the agent network communicates
-
-Inter-agent IPC via JSON files in `./data/` (cross-process, no message bus needed):
-
-```
-data/
-├── alerts.json            ← every alert ever logged
-├── monitoring-state.json  ← current system status
-├── disruption-signal.json ← activates Re-Router (5s polling)
-├── agent-memory.json      ← snapshots for change detection
-├── token-metrics.json     ← per-run API usage
-└── calendars/             ← generated .ics files
+monitor Mumbai next week
+check air quality Delhi
+flights from Delhi to Mumbai
+any cyclone warnings near Chennai
+events in Goa this weekend
 ```
 
-Partner agents (Itinerary Planner + Booking) write to `./itineraries/`.
+## Tech Stack
 
----
-
-## Re-Router activation thresholds
-
-| Condition | Threshold |
-|---|---|
-| Precipitation | > 65% chance on any travel day |
-| Wind | > 50 km/h |
-| Severe weather | storm / hurricane / typhoon / blizzard |
-| Flight delay risk | "High" |
-| AQI | > 150 |
-| Seismic | M5.0+ within 500km OR tsunami warning |
-
----
-
-## API keys (only Anthropic is required)
-
-| Service | Required | Free tier | Where |
-|---|---|---|---|
-| Anthropic | ✅ | — | console.anthropic.com |
-| Open-Meteo (weather + AQI) | ❌ | Built-in, no key | — |
-| wttr.in (fallback) | ❌ | Built-in, no key | — |
-| USGS (earthquakes) | ❌ | Built-in, no key | — |
-| Ticketmaster | Optional | 5 req/sec | developer.ticketmaster.com |
-| AviationStack | Optional | 100 req/mo | aviationstack.com |
-
----
-
-## Project structure
-
-```
-voyager-agents/
-├── core/
-│   ├── orchestrator.js     ← The brain — handles every command
-│   ├── shell.js            ← Interactive terminal REPL
-│   ├── dashboard.js        ← Express + WebSocket server
-│   ├── personality.js      ← Orchestrator system prompt
-│   ├── display.js          ← Terminal UI
-│   ├── ipc.js              ← File-based inter-agent IPC
-│   └── memory.js           ← Persistent memory + change detection + metrics
-├── tools/
-│   ├── open-meteo.js       ← Weather + air quality
-│   ├── disasters.js        ← USGS earthquakes
-│   ├── weather-api.js      ← wttr.in fallback
-│   ├── notifications.js    ← Desktop notifications
-│   └── system-actions.js   ← TTS, clipboard, open, .ics
-├── public/
-│   └── dashboard.html      ← Holographic globe dashboard
-├── data/                   ← Runtime state (auto-created)
-└── index.js                ← Entry point — `node index.js`
-```
-
----
-
-## Built-in shell commands
-
-| | |
-|---|---|
-| `/help`  | List built-ins and example natural-language commands |
-| `/clear` | Clear the terminal |
-| `/exit`  | Shut down VOYAGER |
-
-Everything else goes through the agent. Just talk to it.
-
----
-
-*Phase 2: Dynamic Re-Router Agent — runs in a separate process, watches `disruption-signal.json`, re-plans on activation.*
+- **AI**: Google Gemini 2.0 Flash (free) / Groq LLaMA (fallback)
+- **Weather**: Open-Meteo (free, no key) + wttr.in fallback
+- **AQI**: Open-Meteo Air Quality API (free)
+- **Seismic**: USGS Earthquake API (free)
+- **Dashboard**: Vanilla JS + WebSocket (real-time)
+- **Backend**: Node.js + Express-style WS server

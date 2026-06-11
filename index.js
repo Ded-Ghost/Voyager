@@ -16,9 +16,16 @@ const [,, command, ...args] = process.argv;
 if (!command || command === 'boot' || command === 'start') {
   display.header();
 
-  if (!process.env.GROQ_API_KEY) {
-    display.fatalError('GROQ_API_KEY not set. Copy .env.example → .env and add your key.');
+  const hasGemini = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE';
+  const hasGroq   = !!process.env.GROQ_API_KEY;
+  if (!hasGemini && !hasGroq) {
+    display.fatalError('No AI API key set. Get a FREE Gemini key at https://aistudio.google.com/apikey\nThen set GEMINI_API_KEY in .env');
     process.exit(1);
+  }
+  if (hasGemini) {
+    display.log('API', chalk.green('Using Google Gemini 2.0 Flash (FREE tier)'), 'success');
+  } else {
+    display.log('API', chalk.yellow('Gemini key not set — using Groq fallback. Get free Gemini key: https://aistudio.google.com/apikey'), 'warning');
   }
 
   const dash         = require('./core/dashboard');
@@ -34,7 +41,7 @@ if (!command || command === 'boot' || command === 'start') {
   setTimeout(() => {
     dash.sound('boot');
     dash.agent('Orchestrator', 'idle');
-    dash.log('SYSTEM', 'VOYAGER online. Awaiting commands.', 'info');
+    dash.log('SYSTEM', 'VOYAGER India online. Awaiting commands.', 'info');
   }, 600);
 
   // 3. Auto-open the dashboard in browser (best effort, non-blocking)
@@ -47,7 +54,7 @@ if (!command || command === 'boot' || command === 'start') {
   // 4. Start the interactive shell
   display.log('SYSTEM', chalk.cyan(`Dashboard: http://localhost:${port}`), 'success');
   display.log('SYSTEM', chalk.cyan(`Shell active. Type commands in plain English.`), 'success');
-  display.log('SYSTEM', chalk.gray(`Try: "monitor Tokyo next week"   or   /help for built-ins`), 'info');
+  display.log('SYSTEM', chalk.gray(`Try: "monitor Mumbai next week"  or  "check air quality Delhi"  or  /help`), 'info');
 
   shell.start();
 }

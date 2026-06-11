@@ -123,6 +123,7 @@ const dash = {
   sound:       (cue)                 => broadcast({ type: 'sound', cue }),
   lockOn:      (coords, label)       => broadcast({ type: 'lock_on', coords, label }),
   speak:       (text)                => broadcast({ type: 'speak', text }),
+  emit:        (type, data)          => broadcast({ type, ...data }),
 };
 
 module.exports = dash;

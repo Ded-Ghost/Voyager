@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VOYAGER — Command Surface</title>
-<link rel="preconnect" href="https://unpkg.com">
+<title>VOYAGER India — Travel Intelligence</title>
 <style>
   *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
   :root{
     --bg:#000308;
-    --panel:rgba(8,15,30,0.55);
+    --panel:rgba(8,15,30,0.72);
     --panel-line:rgba(34,211,238,0.18);
     --primary:#22d3ee;
     --primary-glow:rgba(34,211,238,0.5);
@@ -17,19 +16,40 @@
     --warn:#fbbf24;
     --danger:#f87171;
     --success:#34d399;
+    --india:#ff6b35;
+    --india-glow:rgba(255,107,53,0.4);
     --text:#cbd5e1;
     --text-dim:#64748b;
     --text-bright:#e0f2fe;
   }
   html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-family:'SF Mono','Consolas','Cascadia Code',monospace;font-size:12px;overflow:hidden;}
   body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(34,211,238,0.04) 0%,transparent 60%);pointer-events:none;z-index:1;}
-  body::after{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent 0px,transparent 3px,rgba(34,211,238,0.025) 3px,rgba(34,211,238,0.025) 4px);pointer-events:none;z-index:2;animation:scanlines 8s linear infinite;}
+  body::after{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent 0px,transparent 3px,rgba(34,211,238,0.02) 3px,rgba(34,211,238,0.02) 4px);pointer-events:none;z-index:2;animation:scanlines 8s linear infinite;}
   @keyframes scanlines{0%{transform:translateY(0)}100%{transform:translateY(4px)}}
 
-  /* GLOBE */
-  #globe-container{position:fixed;inset:0;z-index:0;}
-  #globe-container canvas{cursor:grab;}
-  #globe-container canvas:active{cursor:grabbing;}
+  /* INDIA MAP CENTER */
+  #india-map-container{position:fixed;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;}
+  #india-svg-wrap{position:relative;width:480px;height:580px;filter:drop-shadow(0 0 40px rgba(34,211,238,0.15));}
+  #india-svg{width:100%;height:100%;cursor:pointer;}
+  .india-glow-ring{position:absolute;inset:-30px;border-radius:50%;border:1px solid rgba(34,211,238,0.08);animation:ringpulse 4s ease-in-out infinite;}
+  .india-glow-ring:nth-child(2){inset:-60px;animation-delay:-1.3s;border-color:rgba(34,211,238,0.05);}
+  .india-glow-ring:nth-child(3){inset:-95px;animation-delay:-2.6s;border-color:rgba(34,211,238,0.03);}
+  @keyframes ringpulse{0%,100%{opacity:0.4;transform:scale(1);}50%{opacity:1;transform:scale(1.02);}}
+
+  /* City pin dots on the SVG overlay */
+  .city-pin{position:absolute;transform:translate(-50%,-50%);cursor:pointer;z-index:5;}
+  .city-pin-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);border:1px solid rgba(34,211,238,0.8);box-shadow:0 0 8px var(--primary);animation:dotpulse 2.5s ease-in-out infinite;transition:all 0.2s;}
+  .city-pin:hover .city-pin-dot{width:12px;height:12px;background:#fff;box-shadow:0 0 18px var(--primary);}
+  .city-pin-label{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--primary);letter-spacing:0.12em;white-space:nowrap;pointer-events:none;text-shadow:0 0 8px rgba(34,211,238,0.6);}
+  .city-pin.active .city-pin-dot{background:var(--india);box-shadow:0 0 20px var(--india);}
+  .city-pin.active .city-pin-label{color:var(--india);}
+  @keyframes dotpulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
+
+  /* City tooltip */
+  #city-tooltip{position:fixed;z-index:30;background:var(--panel);border:1px solid var(--primary);padding:10px 14px;font-size:11px;pointer-events:none;display:none;backdrop-filter:blur(12px);box-shadow:0 0 24px rgba(34,211,238,0.2);}
+  #city-tooltip h3{color:var(--primary);font-size:12px;letter-spacing:0.1em;margin-bottom:4px;}
+  #city-tooltip .ct-meta{color:var(--text-dim);font-size:9px;letter-spacing:0.08em;margin-bottom:6px;}
+  #city-tooltip .ct-action{color:var(--success);font-size:9px;letter-spacing:0.1em;}
 
   /* HUD FRAME */
   .hud-frame{position:fixed;inset:14px;z-index:5;pointer-events:none;}
@@ -42,12 +62,12 @@
   /* TOP BAR */
   .topbar{position:fixed;top:18px;left:24px;right:24px;z-index:10;display:flex;justify-content:space-between;align-items:center;pointer-events:none;}
   .brand{display:flex;align-items:center;gap:14px;pointer-events:auto;}
-  .brand .mark{width:34px;height:34px;border:1px solid var(--primary);position:relative;display:flex;align-items:center;justify-content:center;background:rgba(0,3,8,0.7);}
-  .brand .mark::before,.brand .mark::after{content:'';position:absolute;background:var(--primary);}
+  .brand .mark{width:34px;height:34px;border:1px solid var(--india);position:relative;display:flex;align-items:center;justify-content:center;background:rgba(0,3,8,0.7);}
+  .brand .mark::before,.brand .mark::after{content:'';position:absolute;background:var(--india);}
   .brand .mark::before{width:2px;height:14px;}
   .brand .mark::after{width:14px;height:2px;}
   .brand .mark{animation:markpulse 3s ease-in-out infinite;}
-  @keyframes markpulse{0%,100%{box-shadow:0 0 0 0 var(--primary-glow);}50%{box-shadow:0 0 18px 2px var(--primary-glow);}}
+  @keyframes markpulse{0%,100%{box-shadow:0 0 0 0 var(--india-glow);}50%{box-shadow:0 0 18px 2px var(--india-glow);}}
   .brand-text h1{font-size:14px;font-weight:600;letter-spacing:0.3em;color:var(--text-bright);}
   .brand-text .sub{font-size:9px;color:var(--text-dim);letter-spacing:0.2em;text-transform:uppercase;margin-top:1px;}
 
@@ -58,78 +78,80 @@
   .pill.alert .dot{background:var(--danger);box-shadow:0 0 12px var(--danger);}
   .pill.active .dot{background:var(--primary);box-shadow:0 0 12px var(--primary);animation:pulse 1.5s infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
-
   .icon-btn{background:var(--panel);border:1px solid var(--panel-line);color:var(--text);width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all 0.2s;}
   .icon-btn:hover{border-color:var(--primary);color:var(--primary);}
   .icon-btn.off{color:var(--text-dim);}
 
-  /* LEFT PANEL — AGENTS + METRICS */
-  .panel-left{position:fixed;top:74px;left:24px;width:260px;z-index:10;display:flex;flex-direction:column;gap:12px;pointer-events:auto;}
+  /* LEFT PANEL */
+  .panel-left{position:fixed;top:74px;left:24px;width:250px;z-index:10;display:flex;flex-direction:column;gap:10px;pointer-events:auto;}
 
-  /* RIGHT PANEL — TELEMETRY */
-  .panel-right{position:fixed;top:74px;right:24px;width:320px;bottom:160px;z-index:10;display:flex;flex-direction:column;gap:12px;overflow-y:auto;pointer-events:auto;}
-  .panel-right::-webkit-scrollbar{width:5px;}
+  /* RIGHT PANEL */
+  .panel-right{position:fixed;top:74px;right:24px;width:300px;bottom:160px;z-index:10;display:flex;flex-direction:column;gap:10px;overflow-y:auto;pointer-events:auto;}
+  .panel-right::-webkit-scrollbar{width:4px;}
   .panel-right::-webkit-scrollbar-thumb{background:rgba(34,211,238,0.3);}
 
-  .panel{background:var(--panel);border:1px solid var(--panel-line);backdrop-filter:blur(8px);padding:13px;position:relative;}
-  .panel::before{content:'';position:absolute;top:-1px;left:-1px;width:10px;height:10px;border-top:1px solid var(--primary);border-left:1px solid var(--primary);}
-  .panel::after{content:'';position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-bottom:1px solid var(--primary);border-right:1px solid var(--primary);}
-  .panel h2{font-size:9px;font-weight:600;letter-spacing:0.22em;color:var(--primary);text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--panel-line);display:flex;align-items:center;gap:6px;}
+  .panel{background:var(--panel);border:1px solid var(--panel-line);backdrop-filter:blur(10px);padding:12px;position:relative;}
+  .panel::before{content:'';position:absolute;top:-1px;left:-1px;width:8px;height:8px;border-top:1px solid var(--primary);border-left:1px solid var(--primary);}
+  .panel::after{content:'';position:absolute;bottom:-1px;right:-1px;width:8px;height:8px;border-bottom:1px solid var(--primary);border-right:1px solid var(--primary);}
+  .panel h2{font-size:9px;font-weight:600;letter-spacing:0.22em;color:var(--primary);text-transform:uppercase;margin-bottom:9px;padding-bottom:6px;border-bottom:1px solid var(--panel-line);display:flex;align-items:center;gap:6px;}
   .panel h2 .marker{width:5px;height:5px;background:var(--primary);box-shadow:0 0 6px var(--primary);}
 
   /* AGENT ROWS */
-  .agent{display:flex;align-items:center;gap:10px;padding:7px 9px;background:rgba(0,0,0,0.3);border-left:2px solid transparent;margin-bottom:5px;transition:all 0.3s;}
+  .agent{display:flex;align-items:center;gap:10px;padding:7px 9px;background:rgba(0,0,0,0.3);border-left:2px solid transparent;margin-bottom:4px;transition:all 0.3s;}
   .agent.idle{border-left-color:var(--text-dim);}
   .agent.active{border-left-color:var(--primary);background:rgba(34,211,238,0.06);}
   .agent.alert{border-left-color:var(--danger);background:rgba(248,113,113,0.07);animation:agentflash 1.5s ease-out;}
+  .agent.activated{border-left-color:var(--india);background:rgba(255,107,53,0.07);animation:agentflash2 1.5s ease-out;}
   @keyframes agentflash{0%{background:rgba(248,113,113,0.25);}100%{background:rgba(248,113,113,0.07);}}
+  @keyframes agentflash2{0%{background:rgba(255,107,53,0.3);}100%{background:rgba(255,107,53,0.07);}}
   .agent-icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;}
   .agent-name{flex:1;font-size:11px;color:var(--text-bright);}
   .agent-state{font-size:9px;letter-spacing:0.1em;color:var(--text-dim);text-transform:uppercase;}
   .agent.active .agent-state{color:var(--primary);}
   .agent.alert .agent-state{color:var(--danger);}
+  .agent.activated .agent-state{color:var(--india);}
 
   /* METRICS */
-  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
-  .metric{background:rgba(0,0,0,0.3);border:1px solid rgba(34,211,238,0.1);padding:8px;}
+  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;}
+  .metric{background:rgba(0,0,0,0.3);border:1px solid rgba(34,211,238,0.1);padding:7px;}
   .metric-label{font-size:8px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:3px;}
-  .metric-value{font-size:17px;color:var(--primary);font-weight:600;font-variant-numeric:tabular-nums;text-shadow:0 0 8px rgba(34,211,238,0.4);}
-
-  .kv{display:flex;justify-content:space-between;padding:4px 0;font-size:10px;border-bottom:1px dashed rgba(34,211,238,0.1);}
+  .metric-value{font-size:15px;color:var(--primary);font-weight:600;font-variant-numeric:tabular-nums;text-shadow:0 0 8px rgba(34,211,238,0.4);}
+  .kv{display:flex;justify-content:space-between;padding:3px 0;font-size:10px;border-bottom:1px dashed rgba(34,211,238,0.1);}
   .kv:last-child{border-bottom:none;}
   .kv .k{color:var(--text-dim);}
-  .kv .v{color:var(--text-bright);font-variant-numeric:tabular-nums;}
 
-  /* WEATHER */
-  .day-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
-  .day-pill{background:rgba(0,0,0,0.4);border:1px solid rgba(34,211,238,0.15);padding:7px 4px;text-align:center;transition:all 0.3s;}
-  .day-pill.alert{border-color:var(--danger);background:rgba(248,113,113,0.08);}
-  .day-pill .label{font-size:8px;color:var(--text-dim);letter-spacing:0.1em;}
-  .day-pill .temp{font-size:14px;color:var(--text-bright);font-weight:600;margin:2px 0;}
-  .day-pill .desc{font-size:8px;color:var(--text);min-height:18px;display:flex;align-items:center;justify-content:center;}
-  .day-pill .rain{font-size:9px;color:var(--primary);margin-top:2px;}
-  .day-pill .rain.high{color:var(--danger);}
+  /* WEATHER CARDS */
+  .wx-day{display:flex;align-items:center;gap:8px;padding:6px;margin-bottom:4px;background:rgba(0,0,0,0.3);border:1px solid rgba(34,211,238,0.08);}
+  .wx-date{font-size:9px;color:var(--text-dim);width:34px;}
+  .wx-icon{font-size:16px;width:22px;text-align:center;}
+  .wx-temps{font-size:11px;color:var(--text-bright);flex:1;}
+  .wx-temps span{color:var(--text-dim);font-size:9px;}
+  .wx-flag{font-size:9px;padding:2px 5px;border:1px solid currentColor;letter-spacing:0.06em;}
+  .wx-flag.warn{color:var(--warn);}
+  .wx-flag.danger{color:var(--danger);}
+  .wx-flag.ok{color:var(--success);}
 
   /* AQI */
-  .aqi-display{display:flex;align-items:center;gap:11px;padding:9px;background:rgba(0,0,0,0.4);border:1px solid rgba(34,211,238,0.1);margin-bottom:7px;}
-  .aqi-num{font-size:28px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
-  .aqi-num.good{color:var(--success);text-shadow:0 0 10px var(--success);}
-  .aqi-num.mod{color:var(--warn);text-shadow:0 0 10px var(--warn);}
-  .aqi-num.bad{color:var(--danger);text-shadow:0 0 10px var(--danger);}
-  .aqi-info .cat{font-size:11px;color:var(--text-bright);font-weight:600;}
-  .aqi-info .rec{font-size:9px;color:var(--text-dim);line-height:1.4;margin-top:2px;}
+  .aqi-bar{height:4px;background:rgba(34,211,238,0.1);margin:7px 0;}
+  .aqi-fill{height:100%;transition:width 0.6s;}
 
   /* QUAKES */
-  .quake-row{display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(0,0,0,0.3);border:1px solid rgba(34,211,238,0.08);margin-bottom:4px;}
-  .quake-mag{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;}
-  .quake-mag.major{color:var(--danger);text-shadow:0 0 8px var(--danger);}
+  .quake-row{display:flex;gap:8px;padding:5px 0;border-bottom:1px dashed rgba(34,211,238,0.08);font-size:10px;}
+  .quake-row:last-child{border-bottom:none;}
+  .quake-mag{font-weight:700;width:28px;}
+  .quake-mag.significant{color:var(--danger);}
   .quake-mag.minor{color:var(--warn);}
-  .quake-place{flex:1;font-size:9px;color:var(--text);}
-  .quake-dist{font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+  .quake-place{flex:1;color:var(--text);}
+  .quake-dist{color:var(--text-dim);font-size:9px;}
 
-  /* ACTIVITY FEED — bottom center */
-  .feed-wrapper{position:fixed;left:50%;transform:translateX(-50%);bottom:110px;width:680px;max-width:calc(100vw - 64px);z-index:10;pointer-events:auto;}
-  .feed{background:var(--panel);border:1px solid var(--panel-line);backdrop-filter:blur(8px);max-height:180px;overflow-y:auto;padding:10px 14px;}
+  /* INDIA QUICK CITIES */
+  .city-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+  .city-chip{font-size:9px;padding:3px 8px;border:1px solid var(--panel-line);color:var(--text-dim);cursor:pointer;letter-spacing:0.08em;transition:all 0.2s;}
+  .city-chip:hover{border-color:var(--india);color:var(--india);}
+
+  /* ACTIVITY FEED */
+  .feed-wrapper{position:fixed;left:50%;transform:translateX(-50%);bottom:110px;width:640px;max-width:calc(100vw - 64px);z-index:10;pointer-events:auto;}
+  .feed{background:var(--panel);border:1px solid var(--panel-line);backdrop-filter:blur(8px);max-height:170px;overflow-y:auto;padding:10px 14px;}
   .feed::-webkit-scrollbar{width:4px;}
   .feed::-webkit-scrollbar-thumb{background:rgba(34,211,238,0.25);}
   .feed-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid var(--panel-line);}
@@ -139,50 +161,43 @@
   .event.tool{border-left-color:var(--accent);}
   .event.success{border-left-color:var(--success);}
   .event.alert{border-left-color:var(--danger);background:rgba(248,113,113,0.05);}
-  .event.ipc{border-left-color:var(--warn);background:rgba(251,191,36,0.05);}
+  .event.ipc{border-left-color:var(--india);background:rgba(255,107,53,0.05);}
   .event.reply{border-left-color:var(--primary);background:rgba(34,211,238,0.04);color:var(--text-bright);}
   .event-tag{color:var(--primary);font-weight:600;}
   .event.tool .event-tag{color:var(--accent);}
   .event.success .event-tag{color:var(--success);}
   .event.alert .event-tag{color:var(--danger);}
-  .event.ipc .event-tag{color:var(--warn);}
+  .event.ipc .event-tag{color:var(--india);}
   .event-time{color:var(--text-dim);margin-right:6px;}
 
-  /* COMMAND BAR — bottom */
-  .commandbar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:680px;max-width:calc(100vw - 64px);z-index:11;display:flex;gap:8px;align-items:stretch;pointer-events:auto;}
-  .commandbar .prompt{display:flex;align-items:center;justify-content:center;width:34px;background:var(--panel);border:1px solid var(--primary);color:var(--primary);font-size:14px;font-weight:700;}
+  /* COMMAND BAR */
+  .commandbar{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);width:640px;max-width:calc(100vw - 64px);z-index:11;display:flex;gap:8px;align-items:stretch;pointer-events:auto;}
+  .commandbar .prompt{display:flex;align-items:center;justify-content:center;width:34px;background:var(--panel);border:1px solid var(--india);color:var(--india);font-size:14px;font-weight:700;}
   .commandbar input{flex:1;background:var(--panel);border:1px solid var(--panel-line);color:var(--text-bright);padding:11px 16px;font-family:inherit;font-size:13px;outline:none;transition:all 0.2s;}
-  .commandbar input:focus{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary),0 0 18px rgba(34,211,238,0.3);}
+  .commandbar input:focus{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary),0 0 18px rgba(34,211,238,0.25);}
   .commandbar input::placeholder{color:var(--text-dim);font-style:italic;}
-  .commandbar button{background:var(--panel);border:1px solid var(--primary);color:var(--primary);padding:0 22px;font-family:inherit;font-size:11px;letter-spacing:0.2em;cursor:pointer;text-transform:uppercase;transition:all 0.2s;}
-  .commandbar button:hover{background:var(--primary);color:var(--bg);}
-  .commandbar button:disabled{opacity:0.5;cursor:not-allowed;}
+  .commandbar button{background:var(--panel);border:1px solid var(--india);color:var(--india);padding:0 20px;font-family:inherit;font-size:11px;letter-spacing:0.2em;cursor:pointer;text-transform:uppercase;transition:all 0.2s;}
+  .commandbar button:hover{background:var(--india);color:#000;}
 
-  /* TOAST ALERT */
+  /* TOAST */
   .toast-stack{position:fixed;top:74px;left:50%;transform:translateX(-50%);z-index:20;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
-  .toast{background:rgba(248,113,113,0.15);border:1px solid var(--danger);color:var(--danger);padding:11px 18px;font-size:11px;letter-spacing:0.05em;backdrop-filter:blur(8px);animation:toastin 0.4s ease;text-shadow:0 0 6px rgba(248,113,113,0.4);box-shadow:0 0 24px rgba(248,113,113,0.2);}
-  .toast.medium{border-color:var(--warn);color:var(--warn);background:rgba(251,191,36,0.12);box-shadow:0 0 24px rgba(251,191,36,0.2);}
+  .toast{background:rgba(248,113,113,0.15);border:1px solid var(--danger);color:var(--danger);padding:10px 16px;font-size:11px;letter-spacing:0.05em;backdrop-filter:blur(8px);animation:toastin 0.4s ease;}
+  .toast.medium{border-color:var(--warn);color:var(--warn);background:rgba(251,191,36,0.12);}
   @keyframes toastin{from{opacity:0;transform:translateY(-12px);}to{opacity:1;transform:translateY(0);}}
 
-  /* BOOT OVERLAY */
+  /* VOICE BUBBLE */
+  .voice-bubble{position:fixed;top:50%;left:24px;transform:translateY(-50%);max-width:240px;z-index:12;pointer-events:none;opacity:0;transition:opacity 0.4s;}
+  .voice-bubble.show{opacity:1;}
+  .voice-bubble-inner{background:var(--panel);border:1px solid var(--primary);padding:12px 14px;backdrop-filter:blur(8px);font-size:11px;color:var(--text-bright);line-height:1.5;box-shadow:0 0 30px rgba(34,211,238,0.15);}
+
+  /* BOOT */
   .boot-overlay{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;transition:opacity 0.8s;}
   .boot-overlay.gone{opacity:0;pointer-events:none;}
-  .boot-text{font-size:11px;letter-spacing:0.4em;color:var(--primary);text-transform:uppercase;}
-  .boot-bar{width:300px;height:2px;background:rgba(34,211,238,0.15);position:relative;overflow:hidden;}
-  .boot-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--primary);box-shadow:0 0 12px var(--primary);animation:bootfill 1.8s ease-out forwards;}
+  .boot-text{font-size:11px;letter-spacing:0.4em;color:var(--india);text-transform:uppercase;}
+  .boot-bar{width:300px;height:2px;background:rgba(255,107,53,0.15);position:relative;overflow:hidden;}
+  .boot-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--india);box-shadow:0 0 12px var(--india);animation:bootfill 1.8s ease-out forwards;}
   @keyframes bootfill{to{width:100%;}}
 
-  /* THINKING/REPLY DISPLAY */
-  .voice-bubble{position:fixed;top:50%;left:24px;transform:translateY(-50%);max-width:330px;z-index:12;pointer-events:none;opacity:0;transition:opacity 0.4s;}
-  .voice-bubble.show{opacity:1;}
-  .voice-bubble-inner{background:var(--panel);border:1px solid var(--primary);padding:13px 16px;backdrop-filter:blur(8px);font-size:12px;color:var(--text-bright);line-height:1.55;box-shadow:0 0 30px rgba(34,211,238,0.15);}
-  .voice-bubble-inner::before{content:'V';position:absolute;left:-10px;top:50%;transform:translateY(-50%);background:var(--primary);color:var(--bg);width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;}
-
-  /* MOBILE */
-  @media (max-width:1100px){
-    .panel-left,.panel-right{position:static;width:auto;}
-    .feed-wrapper,.commandbar{width:calc(100vw - 32px);}
-  }
   .empty{text-align:center;color:var(--text-dim);font-size:10px;font-style:italic;padding:8px 0;}
 </style>
 </head>
@@ -190,9 +205,9 @@
 
 <!-- BOOT OVERLAY -->
 <div class="boot-overlay" id="boot">
-  <div class="boot-text">Initializing VOYAGER</div>
+  <div class="boot-text">Initializing VOYAGER India</div>
   <div class="boot-bar"><div class="boot-fill"></div></div>
-  <div class="boot-text" style="font-size:9px;letter-spacing:0.2em;color:var(--text-dim);">Establishing uplink...</div>
+  <div class="boot-text" style="font-size:9px;letter-spacing:0.2em;color:var(--text-dim);">Loading India Intelligence Grid...</div>
 </div>
 
 <!-- HUD FRAME -->
@@ -201,16 +216,114 @@
   <div class="corner bl"></div><div class="corner br"></div>
 </div>
 
-<!-- GLOBE -->
-<div id="globe-container"></div>
+<!-- INDIA HOLOGRAPHIC MAP -->
+<div id="india-map-container">
+  <div id="india-svg-wrap">
+    <div class="india-glow-ring"></div>
+    <div class="india-glow-ring"></div>
+    <div class="india-glow-ring"></div>
+    <!-- SVG India map — simplified holographic outline -->
+    <svg id="india-svg" viewBox="0 0 460 560" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="indiaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:rgba(34,211,238,0.15)"/>
+          <stop offset="100%" style="stop-color:rgba(255,107,53,0.08)"/>
+        </linearGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="cityGlow">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <!-- India mainland outline (simplified but accurate) -->
+      <path id="india-path" d="
+        M 210,28 L 225,24 L 250,30 L 268,38 L 285,32 L 300,38 L 315,50 L 320,65
+        L 335,75 L 348,80 L 360,90 L 368,108 L 370,125 L 362,140 L 355,155
+        L 365,168 L 375,182 L 380,198 L 378,215 L 370,228 L 378,242 L 385,258
+        L 388,275 L 382,290 L 372,305 L 365,320 L 370,335 L 365,350
+        L 355,362 L 340,372 L 328,388 L 315,402 L 305,418 L 292,435
+        L 280,448 L 268,460 L 255,475 L 245,490 L 238,505 L 232,518
+        L 228,530 L 225,520 L 220,508 L 215,495 L 208,480 L 198,465
+        L 185,450 L 172,435 L 162,420 L 152,405 L 140,392 L 128,378
+        L 118,362 L 112,345 L 110,328 L 108,312 L 105,295 L 102,278
+        L 98,262 L 92,248 L 85,235 L 80,220 L 82,205 L 88,190
+        L 88,175 L 80,160 L 72,145 L 68,128 L 70,112 L 78,98
+        L 90,88 L 102,78 L 115,68 L 128,58 L 145,50 L 162,42
+        L 180,35 L 195,30 Z
+      " fill="url(#indiaGrad)" stroke="rgba(34,211,238,0.6)" stroke-width="1.2" filter="url(#glow)"/>
+      <!-- Kashmir/North outline -->
+      <path d="M 210,28 L 198,22 L 188,16 L 178,10 L 168,8 L 155,12 L 145,18 L 135,26 L 128,36 L 128,58" fill="rgba(34,211,238,0.06)" stroke="rgba(34,211,238,0.4)" stroke-width="0.8"/>
+      <!-- State dividers (simplified grid lines) -->
+      <line x1="140" y1="120" x2="340" y2="120" stroke="rgba(34,211,238,0.08)" stroke-width="0.5"/>
+      <line x1="115" y1="200" x2="370" y2="200" stroke="rgba(34,211,238,0.08)" stroke-width="0.5"/>
+      <line x1="100" y1="280" x2="380" y2="280" stroke="rgba(34,211,238,0.08)" stroke-width="0.5"/>
+      <line x1="110" y1="360" x2="365" y2="360" stroke="rgba(34,211,238,0.08)" stroke-width="0.5"/>
+      <line x1="225" y1="28" x2="225" y2="520" stroke="rgba(34,211,238,0.06)" stroke-width="0.5"/>
+      <!-- Grid overlay -->
+      <rect x="0" y="0" width="460" height="560" fill="none" stroke="none"/>
+    </svg>
+
+    <!-- City pins (positioned as absolute overlays) -->
+    <div class="city-pin" id="pin-delhi" style="left:46%;top:20%" data-city="Delhi" data-iata="DEL" data-state="Delhi NCT" title="New Delhi">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">DEL · New Delhi</div>
+    </div>
+    <div class="city-pin" id="pin-mumbai" style="left:28%;top:52%" data-city="Mumbai" data-iata="BOM" data-state="Maharashtra" title="Mumbai">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">BOM · Mumbai</div>
+    </div>
+    <div class="city-pin" id="pin-bengaluru" style="left:42%;top:73%" data-city="Bengaluru" data-iata="BLR" data-state="Karnataka" title="Bengaluru">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">BLR · Bengaluru</div>
+    </div>
+    <div class="city-pin" id="pin-chennai" style="left:55%;top:78%" data-city="Chennai" data-iata="MAA" data-state="Tamil Nadu" title="Chennai">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">MAA · Chennai</div>
+    </div>
+    <div class="city-pin" id="pin-kolkata" style="left:72%;top:38%" data-city="Kolkata" data-iata="CCU" data-state="West Bengal" title="Kolkata">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">CCU · Kolkata</div>
+    </div>
+    <div class="city-pin" id="pin-hyderabad" style="left:50%;top:60%" data-city="Hyderabad" data-iata="HYD" data-state="Telangana" title="Hyderabad">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">HYD · Hyd</div>
+    </div>
+    <div class="city-pin" id="pin-kochi" style="left:38%;top:84%" data-city="Kochi" data-iata="COK" data-state="Kerala" title="Kochi">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">COK</div>
+    </div>
+    <div class="city-pin" id="pin-goa" style="left:32%;top:68%" data-city="Goa" data-iata="GOI" data-state="Goa" title="Goa">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">GOI</div>
+    </div>
+    <div class="city-pin" id="pin-ahmedabad" style="left:28%;top:36%" data-city="Ahmedabad" data-iata="AMD" data-state="Gujarat" title="Ahmedabad">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">AMD</div>
+    </div>
+    <div class="city-pin" id="pin-pune" style="left:34%;top:58%" data-city="Pune" data-iata="PNQ" data-state="Maharashtra" title="Pune">
+      <div class="city-pin-dot"></div>
+      <div class="city-pin-label">PNQ</div>
+    </div>
+  </div>
+</div>
+
+<!-- CITY TOOLTIP -->
+<div id="city-tooltip">
+  <h3 id="tt-city">—</h3>
+  <div class="ct-meta" id="tt-meta">—</div>
+  <div class="ct-action">⟳ Click to inspect</div>
+</div>
 
 <!-- TOP BAR -->
 <div class="topbar">
   <div class="brand">
     <div class="mark"></div>
     <div class="brand-text">
-      <h1>V O Y A G E R</h1>
-      <div class="sub">Travel Intelligence System · v2.5</div>
+      <h1>V O Y A G E R  I N D I A</h1>
+      <div class="sub">AI Travel Intelligence · India Focus · Microsoft AI Build</div>
     </div>
   </div>
   <div class="status-cluster">
@@ -224,26 +337,50 @@
 <!-- LEFT PANEL -->
 <div class="panel-left">
   <div class="panel">
-    <h2><span class="marker"></span>Agent network</h2>
+    <h2><span class="marker"></span>Agent Network</h2>
+    <!-- Agent 1: Orchestrator -->
     <div class="agent idle" id="agent-orchestrator">
       <div class="agent-icon">◆</div>
       <div class="agent-name">Orchestrator</div>
       <div class="agent-state" id="state-orchestrator">idle</div>
     </div>
+    <!-- Agent 2: Weather & Event Monitor (NEW) -->
+    <div class="agent idle" id="agent-weather-monitor">
+      <div class="agent-icon">🌦</div>
+      <div class="agent-name">Weather Monitor</div>
+      <div class="agent-state" id="state-weather-monitor">standby</div>
+    </div>
+    <!-- Agent 3: Dynamic Re-Router (NEW) -->
     <div class="agent idle" id="agent-rerouter">
       <div class="agent-icon">⚡</div>
-      <div class="agent-name">Re-Router</div>
+      <div class="agent-name">Dynamic Re-Router</div>
       <div class="agent-state" id="state-rerouter">standby</div>
     </div>
-    <div class="agent idle" style="opacity:0.5">
-      <div class="agent-icon">▢</div>
-      <div class="agent-name">Planner</div>
+    <!-- Agent 4: Itinerary Planner -->
+    <div class="agent idle" style="opacity:0.55">
+      <div class="agent-icon">📅</div>
+      <div class="agent-name">Itinerary Planner</div>
       <div class="agent-state">partner</div>
     </div>
-    <div class="agent idle" style="opacity:0.5">
-      <div class="agent-icon">▣</div>
-      <div class="agent-name">Booking</div>
+    <!-- Agent 5: Booking & Logistics -->
+    <div class="agent idle" style="opacity:0.55">
+      <div class="agent-icon">✈</div>
+      <div class="agent-name">Booking & Logistics</div>
       <div class="agent-state">partner</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="marker"></span>Quick Inspect</h2>
+    <div class="city-chips">
+      <div class="city-chip" data-cmd="monitor Delhi">Delhi</div>
+      <div class="city-chip" data-cmd="monitor Mumbai">Mumbai</div>
+      <div class="city-chip" data-cmd="monitor Bengaluru">BLR</div>
+      <div class="city-chip" data-cmd="monitor Chennai">Chennai</div>
+      <div class="city-chip" data-cmd="monitor Kolkata">Kolkata</div>
+      <div class="city-chip" data-cmd="monitor Hyderabad">Hyd</div>
+      <div class="city-chip" data-cmd="monitor Goa">Goa</div>
+      <div class="city-chip" data-cmd="monitor Kochi">Kochi</div>
     </div>
   </div>
 
@@ -252,13 +389,11 @@
     <div class="metric-grid">
       <div class="metric"><div class="metric-label">Commands</div><div class="metric-value" id="m-cmds">0</div></div>
       <div class="metric"><div class="metric-label">Tools fired</div><div class="metric-value" id="m-tools">0</div></div>
-      <div class="metric"><div class="metric-label">Tokens</div><div class="metric-value" id="m-tokens">0</div></div>
-      <div class="metric"><div class="metric-label">Est. cost</div><div class="metric-value" id="m-cost">$0</div></div>
     </div>
-    <div class="kv"><span class="k">Destination</span><span class="v" id="m-dest">—</span></div>
+    <div class="kv"><span class="k">Monitoring</span><span class="v" id="m-dest">—</span></div>
     <div class="kv"><span class="k">Last cycle</span><span class="v" id="m-duration">—</span></div>
-    <div class="kv"><span class="k">IPC signals</span><span class="v" id="m-signals">0</span></div>
     <div class="kv"><span class="k">Active alerts</span><span class="v" id="m-alerts">0</span></div>
+    <div class="kv"><span class="k">IPC signals</span><span class="v" id="m-signals">0</span></div>
   </div>
 </div>
 
@@ -266,14 +401,14 @@
 <div class="panel-right">
   <div class="panel">
     <h2><span class="marker"></span>Forecast</h2>
-    <div id="forecast"><div class="empty">Globe locked. Awaiting command.</div></div>
+    <div id="forecast"><div class="empty">Tap a city on the India map to begin.</div></div>
   </div>
   <div class="panel">
-    <h2><span class="marker"></span>Atmospheric</h2>
+    <h2><span class="marker"></span>Air Quality (AQI)</h2>
     <div id="aqi"><div class="empty">No data.</div></div>
   </div>
   <div class="panel">
-    <h2><span class="marker"></span>Seismic</h2>
+    <h2><span class="marker"></span>Seismic / Cyclone</h2>
     <div id="seismic"><div class="empty">No data.</div></div>
   </div>
 </div>
@@ -287,273 +422,122 @@
 <!-- ACTIVITY FEED -->
 <div class="feed-wrapper">
   <div class="feed" id="feed">
-    <div class="feed-header"><span>Activity stream</span><span id="feed-count">0 events</span></div>
-    <div id="feed-items"><div class="empty">Standing by.</div></div>
+    <div class="feed-header"><span>Activity Stream</span><span id="feed-count">0 events</span></div>
+    <div id="feed-items"><div class="empty">VOYAGER India online. Tap any city on the map.</div></div>
   </div>
 </div>
 
 <!-- COMMAND BAR -->
 <div class="commandbar">
   <div class="prompt">▸</div>
-  <input id="cmd-input" type="text" placeholder='Enter command — e.g. "monitor Tokyo for next week"' autocomplete="off" />
+  <input id="cmd-input" type="text" placeholder='e.g. "monitor Mumbai next week" or "check air quality Delhi"' autocomplete="off" />
   <button id="cmd-send">Execute</button>
 </div>
 
 <!-- SCRIPTS -->
-<!-- BULLETPROOF EARLY FAILSAFE: runs immediately, before any CDN loads -->
 <script>
 (function() {
-  // Force-dismiss the boot overlay after 2 seconds NO MATTER WHAT.
-  // This runs before any other script, before CDN libraries, before WebSocket.
   setTimeout(function() {
     var boot = document.getElementById('boot');
     if (boot) boot.classList.add('gone');
-  }, 2000);
-  // Catch any uncaught errors and show them visibly so we know what's failing
+  }, 2200);
   window.addEventListener('error', function(e) {
-    console.error('[VOYAGER] error:', e.message, e.filename, e.lineno);
+    console.error('[VOYAGER]', e.message);
     var boot = document.getElementById('boot');
     if (boot) boot.classList.add('gone');
   });
 })();
 </script>
 
-<!-- CDN libraries with jsdelivr fallback if unpkg is blocked -->
-<script src="https://unpkg.com/three@0.150.0/build/three.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js'"></script>
-<script src="https://unpkg.com/globe.gl" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/globe.gl'"></script>
 <script>
-// ═══════════════════════════════════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════════════════════════════════
-const state = { cmds:0, tools:0, tokens:0, cost:0, signals:0, alerts:0, events:0 };
+// ═══════════════════════════════════════════════════════
+// STATE & HELPERS
+// ═══════════════════════════════════════════════════════
+const state = { cmds:0, tools:0, signals:0, alerts:0, events:0 };
 const $ = id => document.getElementById(id);
-const fmt = n => n >= 1000 ? (n/1000).toFixed(1)+'k' : n;
-let soundOn = true;
-let muted   = false;
-
-// ═══════════════════════════════════════════════════════════════════
-// SOUND ENGINE (Web Audio API)
-// ═══════════════════════════════════════════════════════════════════
-let audioCtx = null;
-function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-}
-function tone(freq, duration, type='sine', vol=0.07) {
-  if (!soundOn) return;
-  ensureAudio();
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.type = type; o.frequency.value = freq;
-  g.gain.value = vol;
-  o.connect(g); g.connect(audioCtx.destination);
-  const now = audioCtx.currentTime;
-  g.gain.setValueAtTime(vol, now);
-  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  o.start(now); o.stop(now + duration);
-}
-function sweep(fromHz, toHz, duration, type='sine', vol=0.07) {
-  if (!soundOn) return;
-  ensureAudio();
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.type = type;
-  o.connect(g); g.connect(audioCtx.destination);
-  const now = audioCtx.currentTime;
-  o.frequency.setValueAtTime(fromHz, now);
-  o.frequency.exponentialRampToValueAtTime(toHz, now + duration);
-  g.gain.setValueAtTime(vol, now);
-  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-  o.start(now); o.stop(now + duration);
-}
-const sfx = {
-  boot:    () => { sweep(120, 880, 0.6, 'sine', 0.08); setTimeout(() => tone(1320, 0.15, 'sine', 0.06), 600); },
-  beep:    () => tone(1400, 0.06, 'sine', 0.05),
-  success: () => { tone(880, 0.08, 'sine', 0.06); setTimeout(() => tone(1320, 0.14, 'sine', 0.05), 80); },
-  error:   () => { tone(200, 0.18, 'square', 0.05); },
-  alert:   () => { for (let i=0;i<3;i++) setTimeout(() => tone(1100, 0.08, 'square', 0.06), i*140); },
-  lock_on: () => { sweep(200, 1200, 0.35, 'sine', 0.07); setTimeout(() => tone(1500, 0.1, 'sine', 0.04), 360); },
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// VOICE — Browser Web Speech API (much better than system TTS)
-// Picks neural voices: Microsoft Aria/Jenny (Windows 10/11), Samantha (Mac), Google voices
-// ═══════════════════════════════════════════════════════════════════
-let selectedVoice = null;
-let voicesReady = false;
+let soundOn  = true;
 let voiceMuted = false;
-
-function pickBestVoice() {
-  const voices = speechSynthesis.getVoices();
-  if (!voices.length) return null;
-
-  // Priority order — neural and modern voices first, then good legacy ones
-  const preferences = [
-    'Microsoft Aria Online (Natural)',
-    'Microsoft Jenny Online (Natural)',
-    'Microsoft Guy Online (Natural)',
-    'Microsoft Aria',
-    'Microsoft Jenny',
-    'Google UK English Female',
-    'Google US English',
-    'Samantha',           // macOS
-    'Karen',              // macOS Australian
-    'Daniel',             // macOS British
-    'Microsoft Zira',
-    'Microsoft David',
-  ];
-
-  for (const name of preferences) {
-    const v = voices.find(v => v.name === name || v.name.includes(name));
-    if (v) return v;
-  }
-  // Any english voice
-  return voices.find(v => v.lang.startsWith('en')) || voices[0];
-}
-
-function initVoices() {
-  selectedVoice = pickBestVoice();
-  voicesReady = true;
-  if (selectedVoice) console.log('[VOYAGER] Voice:', selectedVoice.name);
-}
-if ('speechSynthesis' in window) {
-  // Voices load asynchronously on some browsers
-  if (speechSynthesis.getVoices().length) initVoices();
-  speechSynthesis.addEventListener('voiceschanged', initVoices);
-}
-
-function browserSpeak(text) {
-  if (voiceMuted || !('speechSynthesis' in window) || !text) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text.slice(0, 400));
-  if (selectedVoice) u.voice = selectedVoice;
-  u.rate   = 1.02;
-  u.pitch  = 1.0;
-  u.volume = 0.95;
-  speechSynthesis.speak(u);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// GLOBE — wrapped in try/catch so CDN failures don't break the dashboard
-// ═══════════════════════════════════════════════════════════════════
-let globe = null;
-try {
-  if (typeof Globe !== 'function') throw new Error('Globe.gl library failed to load from CDN');
-  globe = Globe()(document.getElementById('globe-container'))
-    .backgroundColor('rgba(0,0,0,0)')
-    .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
-    .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
-    .showAtmosphere(true)
-    .atmosphereColor('#22d3ee')
-    .atmosphereAltitude(0.22)
-    .pointsData([])
-    .pointAltitude(0.04)
-    .pointColor(() => '#22d3ee')
-    .pointRadius(0.6)
-    .pointsMerge(false)
-    .ringsData([])
-    .ringColor(() => t => `rgba(248,113,113,${1-t})`)
-    .ringMaxRadius(8)
-    .ringPropagationSpeed(4)
-    .ringRepeatPeriod(900)
-    .labelsData([])
-    .labelText('label')
-    .labelColor(() => '#22d3ee')
-    .labelDotRadius(0.4)
-    .labelSize(0.9)
-    .labelResolution(2)
-    .labelAltitude(0.02)
-    .labelsTransitionDuration(800)
-    .onPolygonClick(handleCountryClick);
-
-  setTimeout(() => {
-    if (!globe) return;
-    globe.controls().autoRotate = true;
-    globe.controls().autoRotateSpeed = 0.45;
-    globe.controls().enableZoom = true;
-    resizeGlobe();
-  }, 50);
-
-  window.addEventListener('resize', resizeGlobe);
-} catch (err) {
-  console.error('[VOYAGER] Globe init failed:', err.message);
-  document.getElementById('globe-container').innerHTML =
-    '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#64748b;text-align:center;font-size:11px;">' +
-    'Globe library blocked.<br>Dashboard works without it.</div>';
-}
-
-function resizeGlobe() {
-  if (!globe) return;
-  globe.width(window.innerWidth);
-  globe.height(window.innerHeight);
-}
-
-// Load country polygons from a reliable CDN (best-effort, ~270KB)
-fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
-  .then(r => r.json())
-  .then(geo => {
-    if (!globe) return;
-    globe
-      .polygonsData(geo.features)
-      .polygonCapColor(() => 'rgba(34,211,238,0.06)')
-      .polygonSideColor(() => 'rgba(34,211,238,0.12)')
-      .polygonStrokeColor(() => 'rgba(34,211,238,0.4)')
-      .polygonAltitude(0.005)
-      .polygonsTransitionDuration(300);
-  })
-  .catch(() => console.warn('Country polygons unavailable.'));
-
-function handleCountryClick(feature) {
-  if (!feature || !feature.properties) return;
-  const name = feature.properties.name || feature.properties.NAME;
-  if (!name) return;
-  sfx.lock_on();
-  sendCommand(`monitor ${name}`);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// WEBSOCKET
-// ═══════════════════════════════════════════════════════════════════
 let ws = null;
-let bootHidden = false;
+let wsReady = false;
+let activeCity = null;
+
+// ═══════════════════════════════════════════════════════
+// SOUND FX (Web Audio)
+// ═══════════════════════════════════════════════════════
+const sfx = (function() {
+  let ctx = null;
+  function getCtx() {
+    if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(_) {} }
+    return ctx;
+  }
+  function tone(freq, dur, type='sine', vol=0.12) {
+    if (!soundOn) return;
+    const c = getCtx(); if (!c) return;
+    try {
+      const o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.frequency.value = freq; o.type = type;
+      g.gain.setValueAtTime(vol, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      o.start(); o.stop(c.currentTime + dur);
+    } catch(_) {}
+  }
+  return {
+    beep:  () => tone(880, 0.08),
+    alert: () => { tone(660, 0.15, 'square', 0.08); setTimeout(()=>tone(550,0.2,'square',0.08), 160); },
+    boot:  () => { tone(440,0.1); setTimeout(()=>tone(660,0.1),120); setTimeout(()=>tone(880,0.15),240); },
+    error: () => tone(220, 0.3, 'sawtooth', 0.06),
+    chime: () => { tone(1046,0.15); setTimeout(()=>tone(1318,0.15),100); setTimeout(()=>tone(1568,0.2),200); },
+    lockon:() => { tone(1200,0.05); setTimeout(()=>tone(900,0.08),60); setTimeout(()=>tone(1200,0.12),130); },
+  };
+})();
+
+// ═══════════════════════════════════════════════════════
+// BOOT HIDE
+// ═══════════════════════════════════════════════════════
 function hideBoot() {
-  if (bootHidden) return;
-  bootHidden = true;
-  $('boot').classList.add('gone');
+  var b = $('boot'); if (b) b.classList.add('gone');
   sfx.boot();
 }
-// Safety net: hide boot overlay after 3 seconds no matter what
-setTimeout(hideBoot, 3000);
 
-function connect() {
-  ws = new WebSocket(`ws://${location.host}`);
-  ws.onopen  = () => {
-    console.log('[VOYAGER] WebSocket connected');
-    $('conn-pill').classList.add('on'); $('conn-text').textContent = 'Linked';
+// ═══════════════════════════════════════════════════════
+// WEBSOCKET
+// ═══════════════════════════════════════════════════════
+function connectWs() {
+  const port = location.port || 7777;
+  ws = new WebSocket(`ws://${location.hostname || 'localhost'}:${port}/ws`);
+  ws.onopen = () => {
+    wsReady = true;
+    $('conn-pill').className = 'pill on';
+    $('conn-text').textContent = 'Connected';
     hideBoot();
   };
-  ws.onerror = (e) => { console.error('[VOYAGER] WS error', e); hideBoot(); };
-  ws.onclose = () => { $('conn-pill').classList.remove('on'); $('conn-text').textContent = 'Reconnecting'; setTimeout(connect, 2000); };
-  ws.onmessage = (m) => {
-    hideBoot(); // any message means we're connected
-    const e = JSON.parse(m.data);
-    if (e.type === 'replay') e.events.forEach(handle);
-    else handle(e);
+  ws.onmessage = e => {
+    try { handle(JSON.parse(e.data)); } catch(_) {}
   };
+  ws.onclose = () => {
+    wsReady = false;
+    $('conn-pill').className = 'pill alert';
+    $('conn-text').textContent = 'Disconnected';
+    setTimeout(connectWs, 3000);
+  };
+  ws.onerror = () => ws.close();
 }
-connect();
+connectWs();
 
+// ═══════════════════════════════════════════════════════
+// SEND COMMAND
+// ═══════════════════════════════════════════════════════
 function sendCommand(text) {
-  if (!text || ws?.readyState !== 1) return;
-  ws.send(JSON.stringify({ type:'command', text }));
+  if (!text || !wsReady) return;
+  try { ws.send(JSON.stringify({ type: 'command', text })); } catch(_) {}
   $('cmd-input').value = '';
   sfx.beep();
 }
 
-// Command bar wiring
 $('cmd-send').onclick = () => sendCommand($('cmd-input').value.trim());
-$('cmd-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCommand($('cmd-input').value.trim()); });
-$('sound-btn').onclick = () => { soundOn = !soundOn; $('sound-btn').classList.toggle('off', !soundOn); $('sound-btn').textContent = soundOn ? '🔊' : '🔇'; };
+$('cmd-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendCommand($('cmd-input').value.trim()); });
+$('sound-btn').onclick = () => { soundOn = !soundOn; $('sound-btn').textContent = soundOn ? '🔊' : '🔇'; };
 $('mute-btn').onclick  = () => {
   voiceMuted = !voiceMuted;
   $('mute-btn').classList.toggle('off', voiceMuted);
@@ -561,11 +545,175 @@ $('mute-btn').onclick  = () => {
   sendCommand(voiceMuted ? 'go quiet' : 'speak again');
 };
 
-// ═══════════════════════════════════════════════════════════════════
+// Quick city chips
+document.querySelectorAll('.city-chip').forEach(chip => {
+  chip.addEventListener('click', () => sendCommand(chip.dataset.cmd));
+});
+
+// ═══════════════════════════════════════════════════════
+// VOICE BUBBLE
+// ═══════════════════════════════════════════════════════
+let vTimeout = null;
+function showVoiceBubble(text) {
+  const el = $('voice'), tx = $('voice-text');
+  tx.textContent = text.slice(0, 180);
+  el.classList.add('show');
+  clearTimeout(vTimeout);
+  vTimeout = setTimeout(() => el.classList.remove('show'), 7000);
+}
+function browserSpeak(text) {
+  if (voiceMuted || !window.speechSynthesis) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text.slice(0, 200));
+  u.rate = 0.95; u.pitch = 1; u.volume = 0.9;
+  // Try to pick an Indian English voice
+  const voices = speechSynthesis.getVoices();
+  const indian = voices.find(v => v.lang === 'en-IN') || voices.find(v => v.lang.startsWith('en'));
+  if (indian) u.voice = indian;
+  speechSynthesis.speak(u);
+}
+
+// ═══════════════════════════════════════════════════════
+// FEED
+// ═══════════════════════════════════════════════════════
+function addFeedEvent(tag, msg, type = 'info') {
+  state.events++;
+  $('feed-count').textContent = state.events + ' events';
+  const wrap = $('feed-items');
+  const emp = wrap.querySelector('.empty');
+  if (emp) emp.remove();
+  const now = new Date();
+  const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const div = document.createElement('div');
+  div.className = `event ${type}`;
+  div.innerHTML = `<span class="event-time">${t}</span><span class="event-tag">[${tag}]</span> ${msg.replace(/</g,'&lt;').replace(/>/g,'&gt;')}`;
+  wrap.appendChild(div);
+  if (wrap.children.length > 80) wrap.firstChild.remove();
+  $('feed').scrollTop = $('feed').scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+function showToast(severity, msg) {
+  const stack = $('toasts');
+  const div = document.createElement('div');
+  div.className = `toast ${severity === 'medium' ? 'medium' : ''}`;
+  div.textContent = `⚠ ${msg}`;
+  stack.appendChild(div);
+  setTimeout(() => div.remove(), 6000);
+}
+
+// ═══════════════════════════════════════════════════════
+// WEATHER RENDER
+// ═══════════════════════════════════════════════════════
+function renderWeather(data) {
+  const fc = $('forecast');
+  if (!data || !data.days || data.days.length === 0) { fc.innerHTML = '<div class="empty">No weather data.</div>'; return; }
+  fc.innerHTML = data.days.slice(0, 4).map(d => {
+    const icon = d.conditionCode <= 2 ? '☀' : d.conditionCode <= 4 ? '⛅' : d.conditionCode <= 6 ? '🌧' : d.conditionCode <= 7 ? '⛈' : '🌨';
+    const rain = d.precipitationProbability || d.maxRainChance || 0;
+    const flag = rain > 80 ? `<span class="wx-flag danger">HEAVY RAIN ${rain}%</span>` :
+                 rain > 50 ? `<span class="wx-flag warn">RAIN ${rain}%</span>` :
+                 `<span class="wx-flag ok">CLEAR</span>`;
+    const date = new Date(d.date || d.dateStr);
+    const dayStr = isNaN(date) ? (d.date || d.dateStr || '').slice(5) :
+      date.toLocaleDateString('en-IN', { weekday: 'short' });
+    return `<div class="wx-day">
+      <div class="wx-date">${dayStr}</div>
+      <div class="wx-icon">${icon}</div>
+      <div class="wx-temps">${d.maxTempC}°<span>/${d.minTempC}°C</span></div>
+      ${flag}
+    </div>`;
+  }).join('');
+  if (data.location) $('m-dest').textContent = data.location.split(',')[0];
+}
+
+// ═══════════════════════════════════════════════════════
+// AQI RENDER
+// ═══════════════════════════════════════════════════════
+function renderAqi(data) {
+  const el = $('aqi');
+  if (!data) { el.innerHTML='<div class="empty">No data.</div>'; return; }
+  const aqi = data.usAqi || data.aqi || 0;
+  const cat = data.category || (aqi < 50 ? 'Good' : aqi < 100 ? 'Moderate' : aqi < 150 ? 'Unhealthy for Sensitive' : aqi < 200 ? 'Unhealthy' : aqi < 300 ? 'Very Unhealthy' : 'Hazardous');
+  const color = aqi < 50 ? '#34d399' : aqi < 100 ? '#86efac' : aqi < 150 ? '#fbbf24' : aqi < 200 ? '#f97316' : '#ef4444';
+  const pct = Math.min(100, (aqi/500)*100);
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+      <span style="color:${color};font-size:20px;font-weight:700;">${aqi}</span>
+      <span style="color:${color};font-size:10px;align-self:flex-end;">${cat}</span>
+    </div>
+    <div class="aqi-bar"><div class="aqi-fill" style="width:${pct}%;background:${color};"></div></div>
+    <div class="kv"><span class="k">PM2.5</span><span>${(data.pm25 || 0).toFixed(1)} μg/m³</span></div>
+    <div class="kv"><span class="k">PM10</span><span>${(data.pm10 || 0).toFixed(1)} μg/m³</span></div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════
+// QUAKES RENDER
+// ═══════════════════════════════════════════════════════
+function renderQuakes(data) {
+  const el = $('seismic');
+  if (!data) { el.innerHTML='<div class="empty">No data.</div>'; return; }
+  if (!data.earthquakes || data.earthquakes.length === 0) {
+    el.innerHTML = `<div class="kv"><span class="k">Status</span><span style="color:var(--success)">Clear ✓</span></div><div class="kv"><span class="k">Checked</span><span>${data.totalNearby||0} events</span></div>`;
+    return;
+  }
+  el.innerHTML = data.earthquakes.slice(0, 4).map(q => {
+    const mag = parseFloat(q.magnitude || q.mag || 0);
+    const cls = mag >= 5 ? 'significant' : 'minor';
+    return `<div class="quake-row"><div class="quake-mag ${cls}">M${mag.toFixed(1)}</div><div class="quake-place">${(q.place||'Unknown').slice(0,35)}</div><div class="quake-dist">${q.distKm||'?'}km</div></div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// INDIA CITY HIGHLIGHT
+// ═══════════════════════════════════════════════════════
+function highlightCity(cityName) {
+  document.querySelectorAll('.city-pin').forEach(pin => pin.classList.remove('active'));
+  const cityLower = cityName.toLowerCase();
+  document.querySelectorAll('.city-pin').forEach(pin => {
+    if (pin.dataset.city.toLowerCase().includes(cityLower)) {
+      pin.classList.add('active');
+      activeCity = pin.dataset.city;
+    }
+  });
+  sfx.lockon();
+}
+
+// ═══════════════════════════════════════════════════════
+// CITY PIN INTERACTIONS
+// ═══════════════════════════════════════════════════════
+const tooltip = $('city-tooltip');
+document.querySelectorAll('.city-pin').forEach(pin => {
+  pin.addEventListener('mouseenter', e => {
+    tooltip.style.display = 'block';
+    $('tt-city').textContent = pin.dataset.city;
+    $('tt-meta').textContent = `${pin.dataset.iata} · ${pin.dataset.state}`;
+  });
+  pin.addEventListener('mousemove', e => {
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top  = (e.clientY - 10) + 'px';
+  });
+  pin.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  pin.addEventListener('click', e => {
+    e.stopPropagation();
+    const city = pin.dataset.city;
+    sendCommand(`inspect ${city}`);
+    pin.classList.add('active');
+    sfx.lockon();
+    tooltip.style.display = 'none';
+    addFeedEvent('MAP', `City selected: ${city} (${pin.dataset.iata})`, 'info');
+  });
+});
+
+// ═══════════════════════════════════════════════════════
 // EVENT HANDLER
-// ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
 function handle(e) {
-  state.events++; $('feed-count').textContent = state.events + ' events';
+  state.events++;
+  $('feed-count').textContent = state.events + ' events';
 
   switch (e.type) {
     case 'welcome':
@@ -573,7 +721,10 @@ function handle(e) {
       break;
 
     case 'agent_status': {
-      const id = e.agent.toLowerCase().includes('reroute') ? 'agent-rerouter' : 'agent-orchestrator';
+      const nameLower = (e.agent || '').toLowerCase();
+      let id = 'agent-orchestrator';
+      if (nameLower.includes('reroute')) id = 'agent-rerouter';
+      else if (nameLower.includes('weather') || nameLower.includes('monitor')) id = 'agent-weather-monitor';
       const node = $(id);
       if (node) {
         node.className = 'agent ' + e.status;
@@ -581,6 +732,21 @@ function handle(e) {
       }
       const pill = $('agent-pill');
       pill.className = 'pill ' + (e.status === 'active' ? 'active' : e.status === 'alert' ? 'alert' : '');
+      addFeedEvent(e.agent, e.message || e.status, e.level || 'info');
+      break;
+    }
+
+    case 'agent_activated': {
+      // New event type for activating specific agent panels
+      const a = e.agent || '';
+      if (a.includes('weather')) {
+        $('agent-weather-monitor').className = 'agent ' + (e.status || 'active');
+        $('state-weather-monitor').textContent = e.status || 'active';
+      } else if (a.includes('rerouter')) {
+        $('agent-rerouter').className = 'agent ' + (e.status || 'alert');
+        $('state-rerouter').textContent = e.status || 'activated';
+      }
+      sfx.alert();
       break;
     }
 
@@ -591,11 +757,23 @@ function handle(e) {
     case 'tool_call':
       state.tools++; $('m-tools').textContent = state.tools;
       addFeedEvent('TOOL', `→ ${e.name}`, 'tool');
+      // Activate weather monitor when weather/AQI tools fire
+      if (e.name === 'fetch_weather' || e.name === 'fetch_air_quality') {
+        $('agent-weather-monitor').className = 'agent active';
+        $('state-weather-monitor').textContent = 'scanning';
+      }
       sfx.beep();
       break;
 
     case 'tool_result':
       addFeedEvent('TOOL', `${e.success ? '✓' : '✗'} ${e.name}`, e.success ? 'success' : 'alert');
+      // Reset weather monitor when done
+      if (e.name === 'fetch_weather' || e.name === 'fetch_air_quality') {
+        setTimeout(() => {
+          $('agent-weather-monitor').className = 'agent idle';
+          $('state-weather-monitor').textContent = 'standby';
+        }, 2000);
+      }
       if (!e.success) sfx.error();
       break;
 
@@ -617,16 +795,29 @@ function handle(e) {
 
     case 'weather':
       renderWeather(e.data);
-      if (e.data.location) $('m-dest').textContent = e.data.location.split(',')[0];
+      if (e.data && e.data.location) {
+        const city = e.data.location.split(',')[0];
+        $('m-dest').textContent = city;
+        highlightCity(city);
+      }
       break;
 
     case 'air_quality':
       renderAqi(e.data);
+      $('agent-weather-monitor').className = 'agent active';
+      $('state-weather-monitor').textContent = 'monitoring';
+      setTimeout(() => {
+        $('agent-weather-monitor').className = 'agent idle';
+        $('state-weather-monitor').textContent = 'standby';
+      }, 3000);
       break;
 
     case 'earthquakes':
       renderQuakes(e.data);
-      if (e.data.earthquakes?.length) plotQuakesOnGlobe(e.data.earthquakes);
+      break;
+
+    case 'india_city_highlight':
+      if (e.city) highlightCity(e.city);
       break;
 
     case 'alert':
@@ -637,146 +828,69 @@ function handle(e) {
 
     case 'ipc_signal':
       state.signals++; $('m-signals').textContent = state.signals;
-      addFeedEvent('IPC', `→ Re-Router activated via ${e.path.split('/').pop()}`, 'ipc');
+      addFeedEvent('IPC', `⚡ Dynamic Re-Router activated — finding alternative Indian routes`, 'ipc');
       $('agent-rerouter').className = 'agent alert';
       $('state-rerouter').textContent = 'activated';
+      $('agent-weather-monitor').className = 'agent active';
+      $('state-weather-monitor').textContent = 'alerting';
       sfx.alert();
       break;
 
-    case 'tokens': {
-      const tot = (e.usage.input_tokens || 0) + (e.usage.output_tokens || 0);
-      state.tokens += tot;
-      state.cost += ((e.usage.input_tokens || 0) * 15 + (e.usage.output_tokens || 0) * 75) / 1_000_000;
-      $('m-tokens').textContent = fmt(state.tokens);
-      $('m-cost').textContent = '$' + state.cost.toFixed(4);
+    case 'tokens':
+      break;
+
+    case 'cycle_end': {
+      const secs = ((e.durationMs || 0) / 1000).toFixed(1);
+      $('m-duration').textContent = secs + 's';
+      sfx.chime();
+      $('agent-orchestrator').className = 'agent idle';
+      $('state-orchestrator').textContent = 'idle';
       break;
     }
 
-    case 'cycle_end':
-      $('m-duration').textContent = (e.durationMs / 1000).toFixed(1) + 's';
-      sfx.success();
+    case 'sound':
+      if (e.cue === 'boot') sfx.boot();
+      else if (e.cue === 'alert') sfx.alert();
+      else if (e.cue === 'beep') sfx.beep();
+      else if (e.cue === 'success') sfx.chime();
+      else if (e.cue === 'error') sfx.error();
+      else if (e.cue === 'lock_on') sfx.lockon();
       break;
 
     case 'lock_on':
-      lockOnDestination(e.coords, e.label);
-      break;
-
-    case 'sound':
-      if (sfx[e.cue]) sfx[e.cue]();
+      if (e.label) {
+        highlightCity(e.label.split(',')[0]);
+        addFeedEvent('MAP', `Locked on: ${e.label}`, 'info');
+      }
+      sfx.lockon();
       break;
 
     case 'state':
-      if (e.state.destination) $('m-dest').textContent = e.state.destination.split(',')[0];
-      break;
-
-    case 'changes':
-      (e.deltas || []).forEach(d => addFeedEvent('MEMORY', `Δ ${d.detail}`, 'info'));
+      if (e.state && e.state.destination) {
+        $('m-dest').textContent = e.state.destination;
+        highlightCity(e.state.destination);
+      }
       break;
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// RENDERERS
-// ═══════════════════════════════════════════════════════════════════
-function addFeedEvent(tag, msg, lvl) {
-  const list = $('feed-items');
-  if (list.querySelector('.empty')) list.innerHTML = '';
-  const div = document.createElement('div');
-  div.className = 'event ' + lvl;
-  const t = new Date().toLocaleTimeString();
-  div.innerHTML = `<span class="event-time">${t}</span><span class="event-tag">[${tag}]</span> ${escapeHtml(msg)}`;
-  list.insertBefore(div, list.firstChild);
-  while (list.children.length > 60) list.removeChild(list.lastChild);
+// ═══════════════════════════════════════════════════════
+// AMBIENT INDIA MAP ANIMATION
+// ═══════════════════════════════════════════════════════
+// Randomly pulse city dots to simulate live data feeds
+const pins = Array.from(document.querySelectorAll('.city-pin-dot'));
+function ambientPulse() {
+  if (activeCity) return; // Don't pulse when city is selected
+  const pin = pins[Math.floor(Math.random() * pins.length)];
+  const orig = pin.style.background;
+  pin.style.background = 'rgba(34,211,238,0.9)';
+  pin.style.boxShadow = '0 0 16px var(--primary)';
+  setTimeout(() => {
+    pin.style.background = '';
+    pin.style.boxShadow = '';
+  }, 400);
 }
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-function renderWeather(d) {
-  const html = (d.forecast || []).slice(0, 6).map((day, i) => `
-    <div class="day-pill ${day.isAlertDay ? 'alert' : ''}">
-      <div class="label">Day ${i+1}</div>
-      <div class="temp">${day.maxTempC ?? '?'}°</div>
-      <div class="desc">${(day.description || '').slice(0,16)}</div>
-      <div class="rain ${day.maxChanceOfRain > 65 ? 'high' : ''}">${day.maxChanceOfRain ?? 0}%</div>
-    </div>`).join('');
-  $('forecast').innerHTML = `<div class="day-strip">${html}</div>
-    <div style="text-align:center;color:var(--text-dim);font-size:9px;margin-top:7px;letter-spacing:0.1em;">${d.location} · ${d.source || ''}</div>`;
-}
-
-function renderAqi(d) {
-  const cls = d.usAqi <= 50 ? 'good' : d.usAqi <= 100 ? 'mod' : 'bad';
-  $('aqi').innerHTML = `
-    <div class="aqi-display">
-      <div class="aqi-num ${cls}">${d.usAqi ?? '—'}</div>
-      <div class="aqi-info">
-        <div class="cat">${d.category || '—'}</div>
-        <div class="rec">${d.recommendation || ''}</div>
-      </div>
-    </div>
-    <div class="kv"><span class="k">PM2.5</span><span class="v">${d.pollutants?.pm25?.toFixed(1) || '—'}</span></div>
-    <div class="kv"><span class="k">PM10</span><span class="v">${d.pollutants?.pm10?.toFixed(1) || '—'}</span></div>
-    <div class="kv"><span class="k">O₃</span><span class="v">${d.pollutants?.ozone?.toFixed(1) || '—'}</span></div>`;
-}
-
-function renderQuakes(d) {
-  if (!d.totalNearby) {
-    $('seismic').innerHTML = `<div style="color:var(--success);text-align:center;font-size:10px;padding:6px 0;">✓ No activity within ${d.radiusKm}km</div>`;
-    return;
-  }
-  const list = (d.earthquakes || []).slice(0, 4).map(q => `
-    <div class="quake-row">
-      <div class="quake-mag ${q.magnitude >= 5 ? 'major' : 'minor'}">M${q.magnitude.toFixed(1)}</div>
-      <div class="quake-place">${q.place}</div>
-      <div class="quake-dist">${q.distanceKm}km</div>
-    </div>`).join('');
-  $('seismic').innerHTML = list +
-    `<div style="text-align:center;color:var(--text-dim);font-size:9px;margin-top:5px;">${d.totalNearby} events · USGS</div>`;
-}
-
-function showToast(severity, message) {
-  const stack = $('toasts');
-  const t = document.createElement('div');
-  t.className = 'toast ' + (severity === 'medium' ? 'medium' : '');
-  t.textContent = '⚠  ' + message;
-  stack.appendChild(t);
-  setTimeout(() => t.remove(), 12000);
-  while (stack.children.length > 3) stack.removeChild(stack.firstChild);
-}
-
-let voiceTimer = null;
-function showVoiceBubble(text) {
-  $('voice-text').textContent = text.length > 220 ? text.slice(0, 217) + '…' : text;
-  $('voice').classList.add('show');
-  clearTimeout(voiceTimer);
-  voiceTimer = setTimeout(() => $('voice').classList.remove('show'), Math.min(12000, 3000 + text.length * 40));
-}
-
-// Lock the globe onto a destination — cinematic camera move + pin
-function lockOnDestination(coords, label) {
-  if (!globe || !coords || coords.lat == null || coords.lon == null) return;
-  globe.controls().autoRotate = false;
-  globe.pointOfView({ lat: coords.lat, lng: coords.lon, altitude: 1.8 }, 1600);
-  globe.pointsData([{ lat: coords.lat, lng: coords.lon, label: label || '' }]);
-  globe.labelsData([{ lat: coords.lat, lng: coords.lon, label: label || '' }]);
-  setTimeout(() => { if (globe) { globe.controls().autoRotate = true; globe.controls().autoRotateSpeed = 0.2; } }, 8000);
-}
-
-// Plot earthquakes as pulsing rings at their actual epicenters
-function plotQuakesOnGlobe(quakes) {
-  if (!globe) return;
-  const rings = quakes.slice(0, 6)
-    .filter(q => q.lat != null && q.lon != null)
-    .map(q => ({
-      lat: q.lat, lng: q.lon,
-      maxR: 3 + q.magnitude,
-      propagationSpeed: 3,
-      repeatPeriod: Math.max(700, 1400 - q.magnitude * 100),
-    }));
-  globe.ringsData(rings);
-}
-
-// Resume audio on first interaction (browser autoplay policy)
-document.addEventListener('click', ensureAudio, { once: true });
-document.addEventListener('keydown', ensureAudio, { once: true });
+setInterval(ambientPulse, 2200);
 </script>
 </body>
 </html>

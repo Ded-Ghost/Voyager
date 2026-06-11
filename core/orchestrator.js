@@ -1,6 +1,6 @@
 'use strict';
-const Groq  = require('groq-sdk');
-const chalk = require('chalk');
+const fetch   = require('node-fetch');
+const chalk   = require('chalk');
 
 const display = require('./display');
 const ipc     = require('./ipc');
@@ -14,31 +14,152 @@ const { fetchEnhancedForecast, fetchAirQuality, geocode }    = require('../tools
 const { checkEarthquakes }  = require('../tools/disasters');
 const { sendNotification }  = require('../tools/notifications');
 
-const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+// ─────────────────────────────────────────────────────────────────────────────
+// API SETUP — Gemini Free Tier (primary) with Groq fallback
+// ─────────────────────────────────────────────────────────────────────────────
+const GEMINI_KEY  = process.env.GEMINI_API_KEY;
+const GROQ_KEY    = process.env.GROQ_API_KEY;
+const GROQ_MODEL  = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+// Gemini 2.0 Flash — free tier, extremely capable
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
-// Model — llama-3.3-70b-versatile has the best tool-use support on Groq
-const MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-
-// Rolling conversation history (OpenAI message format)
 const conversationHistory = [];
 const MAX_HISTORY = 20;
-
 let isProcessing = false;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TOOL DEFINITIONS — Groq uses OpenAI function-calling format
+// GEMINI API CALL (free tier via REST)
 // ─────────────────────────────────────────────────────────────────────────────
+async function callGemini(messages, tools) {
+  if (!GEMINI_KEY || GEMINI_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+    throw new Error('GEMINI_API_KEY not set. Get a free key at https://aistudio.google.com/apikey');
+  }
 
+  // Convert OpenAI-style messages to Gemini format
+  const systemMsg = messages.find(m => m.role === 'system');
+  const chatMsgs  = messages.filter(m => m.role !== 'system');
+
+  const contents = chatMsgs.map(m => {
+    if (m.role === 'tool') {
+      return {
+        role: 'user',
+        parts: [{ text: `Tool result: ${m.content}` }]
+      };
+    }
+    if (m.role === 'assistant') {
+      const parts = [];
+      if (m.content) parts.push({ text: m.content });
+      if (m.tool_calls) {
+        m.tool_calls.forEach(tc => {
+          let args = {};
+          try { args = JSON.parse(tc.function.arguments); } catch(_) {}
+          parts.push({ functionCall: { name: tc.function.name, args } });
+        });
+      }
+      return { role: 'model', parts: parts.length ? parts : [{ text: '' }] };
+    }
+    return { role: 'user', parts: [{ text: m.content }] };
+  });
+
+  // Gemini function declarations
+  const functionDeclarations = tools.map(t => ({
+    name: t.function.name,
+    description: t.function.description,
+    parameters: t.function.parameters
+  }));
+
+  const body = {
+    system_instruction: { parts: [{ text: systemMsg?.content || '' }] },
+    contents,
+    tools: [{ functionDeclarations }],
+    generationConfig: { maxOutputTokens: 4096, temperature: 0.3 }
+  };
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`;
+  const res  = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini API error ${res.status}: ${err}`);
+  }
+
+  const data = await res.json();
+  const candidate = data.candidates?.[0];
+  if (!candidate) throw new Error('No response from Gemini');
+
+  // Convert Gemini response to OpenAI-like format
+  const content = candidate.content;
+  let textContent = '';
+  const toolCalls = [];
+
+  (content?.parts || []).forEach((part, i) => {
+    if (part.text) textContent += part.text;
+    if (part.functionCall) {
+      toolCalls.push({
+        id: `call_${i}_${Date.now()}`,
+        type: 'function',
+        function: {
+          name: part.functionCall.name,
+          arguments: JSON.stringify(part.functionCall.args || {})
+        }
+      });
+    }
+  });
+
+  const finishReason = candidate.finishReason === 'STOP' ? 'stop' : 'tool_calls';
+
+  return {
+    choices: [{
+      message: {
+        role: 'assistant',
+        content: textContent || null,
+        tool_calls: toolCalls.length ? toolCalls : undefined
+      },
+      finish_reason: toolCalls.length ? 'tool_calls' : finishReason
+    }],
+    usage: {
+      prompt_tokens:     data.usageMetadata?.promptTokenCount || 0,
+      completion_tokens: data.usageMetadata?.candidatesTokenCount || 0
+    }
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GROQ FALLBACK
+// ─────────────────────────────────────────────────────────────────────────────
+async function callGroq(messages, tools) {
+  if (!GROQ_KEY) throw new Error('No GROQ_API_KEY set');
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      max_tokens: 4096,
+      messages,
+      tools,
+      tool_choice: 'auto'
+    })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Groq API error ${res.status}: ${err}`);
+  }
+  return res.json();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TOOL DEFINITIONS
+// ─────────────────────────────────────────────────────────────────────────────
 const TOOLS = [
   {
     type: 'function',
     function: {
       name: 'fetch_weather',
-      description: 'Fetch detailed weather forecast from Open-Meteo (free) with wttr.in fallback. Returns multi-day forecast with precipitation, wind, UV, severity flags. Also drives the globe to lock on.',
+      description: 'Fetch weather forecast for an Indian city. Covers monsoon, fog, cyclone conditions. Also highlights the city on the India map.',
       parameters: {
         type: 'object',
         properties: {
-          location: { type: 'string', description: 'City and country, e.g. "Tokyo, Japan"' },
+          location: { type: 'string', description: 'Indian city, e.g. "Mumbai, India" or "Delhi"' },
           days:     { type: 'number', description: 'Forecast days 1-7, default 3' },
         },
         required: ['location'],
@@ -49,10 +170,10 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'fetch_air_quality',
-      description: 'Fetch real-time air quality (AQI, PM2.5, PM10) from Open-Meteo. Free, no key.',
+      description: 'Fetch real-time AQI data. Critical for Indian cities like Delhi (PM2.5 often hazardous). Returns AQI, PM2.5, PM10.',
       parameters: {
         type: 'object',
-        properties: { location: { type: 'string' } },
+        properties: { location: { type: 'string', description: 'Indian city name' } },
         required: ['location'],
       },
     },
@@ -61,7 +182,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'check_seismic_activity',
-      description: 'Query USGS for earthquakes within radius of destination in past 24h. Detects tsunami warnings.',
+      description: 'Check for earthquakes and cyclone activity. For Indian coastal cities, also checks Bay of Bengal / Arabian Sea cyclone warnings.',
       parameters: {
         type: 'object',
         properties: {
@@ -76,11 +197,11 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'check_flight_delays',
-      description: 'Assess flight delay risk for destination.',
+      description: 'Assess Indian domestic flight delay risk. Considers fog (Delhi winters), monsoon, and high-traffic routes (DEL-BOM, BLR-DEL, etc). Airlines: IndiGo, Air India, SpiceJet, Vistara, Akasa.',
       parameters: {
         type: 'object',
         properties: {
-          destination:    { type: 'string' },
+          destination:    { type: 'string', description: 'Indian city or airport code (e.g. DEL, BOM, BLR)' },
           departure_date: { type: 'string' },
         },
         required: ['destination'],
@@ -91,7 +212,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'search_local_events',
-      description: 'Search local events during travel dates.',
+      description: 'Search local events in an Indian city. Covers festivals (Diwali, Holi, Navratri), IPL matches, Kumbh Mela, Republic Day parades, local melas.',
       parameters: {
         type: 'object',
         properties: {
@@ -107,7 +228,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'compare_with_memory',
-      description: 'Compare current weather snapshot against previous runs. Returns detected changes.',
+      description: 'Compare current conditions against previous monitoring runs. Detect worsening monsoon, rising AQI, new cyclone warnings.',
       parameters: {
         type: 'object',
         properties: {
@@ -122,12 +243,12 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'write_alert_log',
-      description: 'Persist assessment to data/alerts.json. Mandatory every monitoring cycle.',
+      description: 'Persist assessment to data/alerts.json.',
       parameters: {
         type: 'object',
         properties: {
           destination:  { type: 'string' },
-          alert_type:   { type: 'string', enum: ['clear','rain_warning','storm_warning','flight_delay','wind_warning','air_quality','seismic','event_note'] },
+          alert_type:   { type: 'string', enum: ['clear','rain_warning','storm_warning','flight_delay','wind_warning','air_quality','seismic','cyclone','event_note','fog_warning'] },
           severity:     { type: 'string', enum: ['none','low','medium','high','critical'] },
           summary:      { type: 'string' },
           forecast:     { type: 'object' },
@@ -143,7 +264,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'write_monitoring_state',
-      description: 'Update data/monitoring-state.json.',
+      description: 'Update current monitoring state.',
       parameters: {
         type: 'object',
         properties: {
@@ -160,7 +281,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'read_monitoring_state',
-      description: 'Read the current monitoring state. Use when user asks about status.',
+      description: 'Read current monitoring state.',
       parameters: { type: 'object', properties: {} },
     },
   },
@@ -168,7 +289,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'read_recent_alerts',
-      description: 'Read recent alerts from data/alerts.json.',
+      description: 'Read recent alerts.',
       parameters: {
         type: 'object',
         properties: { count: { type: 'number' } },
@@ -179,16 +300,17 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'signal_rerouter',
-      description: 'Write data/disruption-signal.json to activate the Re-Router. ONLY when thresholds exceeded.',
+      description: 'Activate the Dynamic Re-Router Agent when disruptions exceed thresholds. Re-Router coordinates with Itinerary Planner and Booking agents to find alternative Indian routes.',
       parameters: {
         type: 'object',
         properties: {
-          disruption_type: { type: 'string', enum: ['rain_warning','storm','flight_delay','high_winds','extreme_weather','air_quality','seismic'] },
+          disruption_type: { type: 'string', enum: ['rain_warning','cyclone','flight_delay','high_winds','extreme_weather','air_quality','seismic','fog_warning'] },
           severity:        { type: 'string', enum: ['medium','high','critical'] },
           destination:     { type: 'string' },
           travel_dates:    { type: 'string' },
           affected_days:   { type: 'array', items: { type: 'string' } },
           details:         { type: 'string' },
+          alternative_routes: { type: 'string', description: 'Suggested Indian alternative routes, e.g. train Rajdhani instead of flight' },
           weather_summary: { type: 'object' },
         },
         required: ['disruption_type', 'severity', 'destination', 'details'],
@@ -199,7 +321,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'send_system_notification',
-      description: 'Send a native desktop notification.',
+      description: 'Send a desktop notification.',
       parameters: {
         type: 'object',
         properties: {
@@ -215,7 +337,7 @@ const TOOLS = [
     type: 'function',
     function: {
       name: 'speak',
-      description: 'Speak text aloud using system TTS. Keep under 2 sentences.',
+      description: 'Speak text aloud. Keep under 2 sentences.',
       parameters: {
         type: 'object',
         properties: { text: { type: 'string' } },
@@ -238,62 +360,27 @@ const TOOLS = [
   {
     type: 'function',
     function: {
-      name: 'write_clipboard',
-      description: 'Write text to the system clipboard.',
-      parameters: {
-        type: 'object',
-        properties: { text: { type: 'string' } },
-        required: ['text'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'read_clipboard',
-      description: 'Read the current system clipboard content.',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'open_file_or_app',
-      description: 'Open a file, folder, app, or URL on the user machine.',
-      parameters: {
-        type: 'object',
-        properties: { target: { type: 'string' } },
-        required: ['target'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'generate_calendar',
-      description: 'Generate a .ics calendar file for a trip. User double-clicks to import.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title:       { type: 'string' },
-          description: { type: 'string' },
-          location:    { type: 'string' },
-          start_date:  { type: 'string', description: 'YYYY-MM-DD' },
-          end_date:    { type: 'string', description: 'YYYY-MM-DD' },
-        },
-        required: ['title', 'start_date', 'end_date'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'play_sound_cue',
-      description: 'Trigger a sound effect on the dashboard.',
+      description: 'Trigger a dashboard sound effect.',
       parameters: {
         type: 'object',
         properties: { cue: { type: 'string', enum: ['lock_on','success','alert','beep','error','boot'] } },
         required: ['cue'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'highlight_india_city',
+      description: 'Highlight a city on the India holographic map. Used when inspecting a city from the map.',
+      parameters: {
+        type: 'object',
+        properties: {
+          city: { type: 'string', description: 'Indian city name' },
+          state: { type: 'string', description: 'Indian state, optional' },
+        },
+        required: ['city'],
       },
     },
   },
@@ -302,27 +389,31 @@ const TOOLS = [
 // ─────────────────────────────────────────────────────────────────────────────
 // TOOL EXECUTOR
 // ─────────────────────────────────────────────────────────────────────────────
-
 async function executeTool(name, input) {
   switch (name) {
 
     case 'fetch_weather': {
+      // Append ", India" if not already there
+      const loc = input.location.toLowerCase().includes('india') ? input.location : `${input.location}, India`;
       let data, coords;
       try {
-        data   = await fetchEnhancedForecast(input.location, input.days || 3);
+        data   = await fetchEnhancedForecast(loc, input.days || 3);
         coords = data.coordinates;
       } catch {
         display.log('TOOL', 'Open-Meteo failed, falling back to wttr.in', 'warning');
-        data = await fetchWeather(input.location, input.days || 3);
-        try { const g = await geocode(input.location); coords = { lat: g.lat, lon: g.lon }; } catch (_) {}
+        data = await fetchWeather(loc, input.days || 3);
+        try { const g = await geocode(loc); coords = { lat: g.lat, lon: g.lon }; } catch (_) {}
       }
       dash.weather(data);
       if (coords) dash.lockOn(coords, data.location);
+      // Also highlight city on India map
+      dash.emit('india_city_highlight', { city: input.location.split(',')[0] });
       return data;
     }
 
     case 'fetch_air_quality': {
-      const data = await fetchAirQuality(input.location);
+      const loc  = input.location.toLowerCase().includes('india') ? input.location : `${input.location}, India`;
+      const data = await fetchAirQuality(loc);
       dash.airQuality(data);
       display.log('AIR', `AQI ${data.usAqi} — ${data.category}`, data.isAlertLevel ? 'warning' : 'success');
       return data;
@@ -377,7 +468,10 @@ async function executeTool(name, input) {
       display.ipcSignal(result.path);
       dash.ipcSignal(result.path, input);
       dash.sound('alert');
-      return { ...result, message: 'Re-Router Agent will activate within 5 seconds.' };
+      // Activate the new agent panels on dashboard
+      dash.emit('agent_activated', { agent: 'weather_monitor', status: 'active' });
+      dash.emit('agent_activated', { agent: 'rerouter', status: 'alert' });
+      return { ...result, message: 'Dynamic Re-Router Agent activating. Checking alternative Indian routes (train/alternate flight).' };
     }
 
     case 'send_system_notification': {
@@ -387,8 +481,6 @@ async function executeTool(name, input) {
     }
 
     case 'speak': {
-      // Broadcast to dashboard — browser Web Speech API does the actual speaking
-      // (much better neural voices than system SAPI on Windows)
       dash.speak(input.text);
       display.log('VOICE', `"${input.text.slice(0, 80)}"`, 'info');
       return { ok: true, spoken: input.text };
@@ -400,36 +492,14 @@ async function executeTool(name, input) {
       return { enabled: state };
     }
 
-    case 'write_clipboard': {
-      const result = await sys.writeClipboard(input.text);
-      display.log('CLIP', `Copied ${result.bytes} bytes`, 'success');
-      return result;
-    }
-
-    case 'read_clipboard': {
-      const result = await sys.readClipboard();
-      display.log('CLIP', `Read ${result.content.length} bytes`, 'data');
-      return result;
-    }
-
-    case 'open_file_or_app': {
-      const result = await sys.openTarget(input.target);
-      display.log('OPEN', `Opened: ${input.target}`, 'success');
-      return result;
-    }
-
-    case 'generate_calendar': {
-      const result = sys.generateIcs({
-        title: input.title, description: input.description,
-        location: input.location, startDate: input.start_date, endDate: input.end_date,
-      });
-      display.log('CAL', `ICS saved → ${result.path}`, 'success');
-      return result;
-    }
-
     case 'play_sound_cue':
       dash.sound(input.cue);
       return { ok: true, cue: input.cue };
+
+    case 'highlight_india_city':
+      dash.emit('india_city_highlight', { city: input.city, state: input.state });
+      display.log('MAP', `India map → ${input.city}`, 'info');
+      return { ok: true, city: input.city };
 
     default:
       return { error: `Unknown tool: ${name}` };
@@ -437,9 +507,8 @@ async function executeTool(name, input) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COMMAND HANDLER — Groq agentic loop
+// COMMAND HANDLER — agentic loop with Gemini (free) / Groq fallback
 // ─────────────────────────────────────────────────────────────────────────────
-
 async function handleCommand(text, source = 'shell') {
   if (isProcessing) {
     display.log('VOYAGER', 'Still processing previous command. Please wait.', 'warning');
@@ -452,26 +521,34 @@ async function handleCommand(text, source = 'shell') {
   dash.agent('Orchestrator', 'active');
   dash.sound('beep');
 
-  // Add user message to rolling history
   conversationHistory.push({ role: 'user', content: text });
   if (conversationHistory.length > MAX_HISTORY) conversationHistory.shift();
 
-  // Full message array: system first, then history
   const messages = [
     { role: 'system', content: ORCHESTRATOR_SYSTEM },
     ...conversationHistory,
   ];
 
   try {
-    // ── Agentic loop ────────────────────────────────────────────────────────
     while (true) {
-      const response = await client.chat.completions.create({
-        model:       MODEL,
-        max_tokens:  4096,
-        messages,
-        tools:       TOOLS,
-        tool_choice: 'auto',
-      });
+      let response;
+
+      // Try Gemini first (free), fall back to Groq
+      try {
+        if (GEMINI_KEY && GEMINI_KEY !== 'YOUR_GEMINI_API_KEY_HERE') {
+          response = await callGemini(messages, TOOLS);
+        } else {
+          display.log('WARN', 'No Gemini key — using Groq fallback', 'warning');
+          response = await callGroq(messages, TOOLS);
+        }
+      } catch (apiErr) {
+        if (GROQ_KEY && !apiErr.message.includes('Groq')) {
+          display.log('WARN', `Gemini failed (${apiErr.message.slice(0,60)}), trying Groq...`, 'warning');
+          response = await callGroq(messages, TOOLS);
+        } else {
+          throw apiErr;
+        }
+      }
 
       // Track token usage
       if (response.usage) {
@@ -488,15 +565,12 @@ async function handleCommand(text, source = 'shell') {
       const choice  = response.choices[0];
       const message = choice.message;
 
-      // Print any text content
       if (message.content) {
         display.log('VOYAGER', message.content.trim(), 'info');
         dash.reply(message.content.trim());
       }
 
-      // Done — no tool calls
       if (choice.finish_reason === 'stop' || !message.tool_calls?.length) {
-        // Save assistant turn to history
         if (message.content) {
           conversationHistory.push({ role: 'assistant', content: message.content });
           if (conversationHistory.length > MAX_HISTORY) conversationHistory.shift();
@@ -504,10 +578,8 @@ async function handleCommand(text, source = 'shell') {
         break;
       }
 
-      // Add assistant message (with tool_calls) to the running messages array
       messages.push({ role: 'assistant', content: message.content || '', tool_calls: message.tool_calls });
 
-      // Execute each tool call
       for (const toolCall of message.tool_calls) {
         const name  = toolCall.function.name;
         let   input = {};
@@ -528,7 +600,6 @@ async function handleCommand(text, source = 'shell') {
           dash.toolResult(name, false, { error: err.message });
         }
 
-        // Tool result goes back as a 'tool' role message
         messages.push({
           role:         'tool',
           tool_call_id: toolCall.id,
