@@ -16,8 +16,8 @@ const [,, command, ...args] = process.argv;
 if (!command || command === 'boot' || command === 'start') {
   display.header();
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    display.fatalError('ANTHROPIC_API_KEY not set. Copy .env.example → .env and add your key.');
+  if (!process.env.GROQ_API_KEY) {
+    display.fatalError('GROQ_API_KEY not set. Copy .env.example → .env and add your key.');
     process.exit(1);
   }
 
