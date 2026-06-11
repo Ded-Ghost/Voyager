@@ -17,11 +17,24 @@ const { sendNotification }  = require('../tools/notifications');
 // ─────────────────────────────────────────────────────────────────────────────
 // API SETUP — Gemini Free Tier (primary) with Groq fallback
 // ─────────────────────────────────────────────────────────────────────────────
-const GEMINI_KEY  = process.env.GEMINI_API_KEY;
-const GROQ_KEY    = process.env.GROQ_API_KEY;
+// Sanitize keys: people often paste with quotes, spaces, or trailing newlines
+function cleanKey(k) {
+  return (k || '').trim().replace(/^["']|["']$/g, '').replace(/\s+/g, '');
+}
+const GEMINI_KEY  = cleanKey(process.env.GEMINI_API_KEY);
+const GROQ_KEY    = cleanKey(process.env.GROQ_API_KEY);
 const GROQ_MODEL  = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
-// Gemini 2.0 Flash — free tier, extremely capable
-const GEMINI_MODEL = 'gemini-2.0-flash';
+
+// Model fallback chain — availability changes over time, try each until one works.
+// Override with GEMINI_MODEL in .env to pin a specific one.
+const GEMINI_MODELS = process.env.GEMINI_MODEL
+  ? [process.env.GEMINI_MODEL.trim()]
+  : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
+let geminiModelIdx = 0;   // remembers which model worked, so we don't re-probe every call
+
+function geminiKeyMissing() {
+  return !GEMINI_KEY || GEMINI_KEY === 'YOUR_GEMINI_API_KEY_HERE';
+}
 
 const conversationHistory = [];
 const MAX_HISTORY = 20;
@@ -31,7 +44,7 @@ let isProcessing = false;
 // GEMINI API CALL (free tier via REST)
 // ─────────────────────────────────────────────────────────────────────────────
 async function callGemini(messages, tools) {
-  if (!GEMINI_KEY || GEMINI_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
+  if (geminiKeyMissing()) {
     throw new Error('GEMINI_API_KEY not set. Get a free key at https://aistudio.google.com/apikey');
   }
 
@@ -75,12 +88,55 @@ async function callGemini(messages, tools) {
     generationConfig: { maxOutputTokens: 4096, temperature: 0.3 }
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`;
-  const res  = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  // Auth via header (works for both AIza... and AQ.... style Google keys).
+  // Walk the model fallback chain: if a model name is gone (404), try the next.
+  let res = null;
+  let lastErr = '';
+  for (let i = geminiModelIdx; i < GEMINI_MODELS.length; i++) {
+    const model = GEMINI_MODELS[i];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+      body: JSON.stringify(body),
+    });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${err}`);
+    // Rate limited on free tier — wait once and retry the same model
+    if (res.status === 429) {
+      display.log('API', 'Gemini rate limit hit — waiting 5s and retrying...', 'warning');
+      await new Promise(r => setTimeout(r, 5000));
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+        body: JSON.stringify(body),
+      });
+    }
+
+    if (res.ok) { geminiModelIdx = i; break; }
+
+    lastErr = await res.text();
+
+    // Auth errors won't be fixed by trying another model — fail fast with clear guidance
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        `Gemini rejected your API key (HTTP ${res.status}). ` +
+        `Fix: 1) Go to https://aistudio.google.com/apikey  2) Create API key  ` +
+        `3) Paste it as GEMINI_API_KEY in .env (no quotes, no spaces)  4) Restart. ` +
+        `Detail: ${lastErr.slice(0, 200)}`
+      );
+    }
+
+    // 404 = model name not available for this key/region → try next model in chain
+    if (res.status === 404 && i < GEMINI_MODELS.length - 1) {
+      display.log('API', `Model ${model} unavailable, trying ${GEMINI_MODELS[i + 1]}...`, 'warning');
+      continue;
+    }
+
+    throw new Error(`Gemini API error ${res.status}: ${lastErr.slice(0, 300)}`);
+  }
+
+  if (!res || !res.ok) {
+    throw new Error(`Gemini API error: ${lastErr.slice(0, 300) || 'no models in chain responded'}`);
   }
 
   const data = await res.json();
@@ -630,4 +686,32 @@ async function handleCommand(text, source = 'shell') {
   }
 }
 
-module.exports = { handleCommand, TOOLS };
+// ─────────────────────────────────────────────────────────────────────────────
+// KEY SELF-TEST — minimal ping to verify the Gemini key works
+// ─────────────────────────────────────────────────────────────────────────────
+async function verifyGemini() {
+  if (geminiKeyMissing()) {
+    return { ok: false, reason: 'GEMINI_API_KEY not set in .env. Get one free: https://aistudio.google.com/apikey' };
+  }
+  for (const model of GEMINI_MODELS) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }], generationConfig: { maxOutputTokens: 5 } }),
+      });
+      if (res.ok) return { ok: true, model };
+      const txt = await res.text();
+      if (res.status === 401 || res.status === 403) {
+        return { ok: false, reason: `Key rejected (HTTP ${res.status}). Generate a fresh key at https://aistudio.google.com/apikey and paste it into .env with no quotes/spaces. Detail: ${txt.slice(0, 150)}` };
+      }
+      if (res.status === 404) continue; // try next model
+      return { ok: false, reason: `HTTP ${res.status}: ${txt.slice(0, 150)}` };
+    } catch (e) {
+      return { ok: false, reason: `Network error: ${e.message}` };
+    }
+  }
+  return { ok: false, reason: 'No Gemini model in the fallback chain is available for this key.' };
+}
+
+module.exports = { handleCommand, TOOLS, verifyGemini };

@@ -213,152 +213,74 @@
      ═══════════════════════════════════════════════════════ -->
 <div id="india-map-container">
   <div id="india-svg-wrap">
-    <svg id="india-svg" viewBox="60 5 400 480" xmlns="http://www.w3.org/2000/svg">
+    <svg id="india-svg" viewBox="-70 -50 500 510" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <filter id="glow2"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <filter id="softglow"><feGaussianBlur stdDeviation="8"/></filter>
-        <radialGradient id="mapGrad" cx="50%" cy="45%">
-          <stop offset="0%" stop-color="rgba(34,211,238,0.12)"/>
-          <stop offset="80%" stop-color="rgba(34,211,238,0.02)"/>
-          <stop offset="100%" stop-color="transparent"/>
+        <filter id="glow"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="starGlow"><feGaussianBlur stdDeviation="2.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="bigBlur"><feGaussianBlur stdDeviation="14"/></filter>
+        <radialGradient id="mapFill" cx="45%" cy="40%">
+          <stop offset="0%" stop-color="rgba(34,140,238,0.16)"/>
+          <stop offset="70%" stop-color="rgba(20,80,180,0.07)"/>
+          <stop offset="100%" stop-color="rgba(10,40,120,0.03)"/>
         </radialGradient>
       </defs>
 
-      <!-- Glow background of India shape -->
-      <path id="india-glow-bg" filter="url(#softglow)" fill="rgba(34,211,238,0.06)" stroke="none" d="
-        M200,18 L215,16 L228,19 L238,15 L255,18 L268,28 L275,22 L290,25
-        L305,28 L320,35 L330,42 L338,55 L342,70 L340,85
-        L348,92 L358,98 L365,108 L378,115 L390,125 L395,138
-        L390,152 L382,162 L378,175 L382,185 L388,198
-        L392,212 L388,228 L380,240 L372,255 L368,270
-        L372,285 L375,298 L370,312 L360,325 L348,338
-        L338,350 L325,362 L312,372 L298,385 L285,398
-        L272,412 L260,425 L248,440 L240,452 L235,462
-        L232,468 L228,462 L222,448 L215,435 L205,422
-        L192,408 L178,395 L165,382 L152,368 L142,355
-        L132,340 L125,325 L118,310 L112,295 L108,278
-        L105,262 L102,248 L98,235 L92,222 L88,208
-        L90,192 L95,178 L98,165 L95,152 L88,140
-        L82,128 L80,115 L82,100 L88,88 L98,78
-        L110,68 L125,58 L140,48 L155,40 L170,32
-        L185,25 Z
-      "/>
+      <!-- Ambient glow behind the country -->
+      <path d="M78.0,3.6 L90.0,4.8 L102.0,14.4 L117.6,20.4 L130.8,34.8 L128.4,44.4 L134.4,56.4 L124.8,55.2 L129.6,70.8 L144.0,80.4 L156.0,86.4 L150.0,96.0 L168.0,105.6 L192.0,116.4 L213.6,126.0 L240.0,128.4 L241.2,111.6 L249.6,110.4 L258.0,124.8 L288.0,123.6 L288.0,112.8 L318.0,94.8 L336.0,93.6 L351.6,108.0 L338.4,118.8 L326.4,126.0 L320.4,140.4 L318.0,150.0 L303.6,158.4 L304.8,180.0 L295.2,183.6 L291.6,162.0 L283.2,171.6 L278.4,164.4 L261.6,142.8 L243.6,147.6 L240.0,154.8 L248.4,168.0 L252.0,182.4 L242.4,187.2 L228.0,186.0 L222.0,198.0 L204.0,208.8 L192.0,218.4 L171.6,236.4 L158.4,250.8 L147.6,256.8 L147.6,285.6 L142.8,302.4 L141.6,322.8 L135.6,334.8 L121.2,339.6 L114.0,349.2 L103.2,339.6 L98.4,326.4 L92.4,309.6 L81.6,290.4 L72.0,271.2 L69.6,260.4 L61.2,242.4 L57.6,218.4 L56.4,202.8 L55.2,187.2 L48.0,192.0 L33.6,198.0 L14.4,183.6 L9.6,177.6 L26.4,176.4 L20.4,170.4 L4.8,163.2 L8.4,154.8 L25.2,153.6 L33.6,144.0 L36.0,127.2 L24.0,122.4 L22.8,111.6 L48.0,98.4 L60.0,87.6 L70.8,74.4 L78.0,66.0 L87.6,58.8 L72.0,48.0 L70.8,33.6 L78.0,20.4 L78.0,3.6 Z" fill="rgba(34,160,238,0.10)" filter="url(#bigBlur)"/>
 
-      <!-- India mainland — accurate outline -->
-      <path id="india-outline" fill="url(#mapGrad)" stroke="rgba(34,211,238,0.7)" stroke-width="1.5" filter="url(#glow)" d="
-        M200,18 L215,16 L228,19 L238,15 L255,18 L268,28 L275,22 L290,25
-        L305,28 L320,35 L330,42 L338,55 L342,70 L340,85
-        L348,92 L358,98 L365,108 L378,115 L390,125 L395,138
-        L390,152 L382,162 L378,175 L382,185 L388,198
-        L392,212 L388,228 L380,240 L372,255 L368,270
-        L372,285 L375,298 L370,312 L360,325 L348,338
-        L338,350 L325,362 L312,372 L298,385 L285,398
-        L272,412 L260,425 L248,440 L240,452 L235,462
-        L232,468 L228,462 L222,448 L215,435 L205,422
-        L192,408 L178,395 L165,382 L152,368 L142,355
-        L132,340 L125,325 L118,310 L112,295 L108,278
-        L105,262 L102,248 L98,235 L92,222 L88,208
-        L90,192 L95,178 L98,165 L95,152 L88,140
-        L82,128 L80,115 L82,100 L88,88 L98,78
-        L110,68 L125,58 L140,48 L155,40 L170,32
-        L185,25 Z
-      "/>
+      <!-- Outer constellation network -->
+      <g stroke="rgba(34,211,238,0.10)" stroke-width="0.7" fill="none"><line x1="-35" y1="30" x2="-50" y2="150"/><line x1="-50" y1="150" x2="-30" y2="290"/><line x1="-30" y1="290" x2="20" y2="390"/><line x1="20" y1="390" x2="150" y2="400"/><line x1="150" y1="400" x2="290" y2="385"/><line x1="290" y1="385" x2="385" y2="300"/><line x1="385" y1="300" x2="400" y2="170"/><line x1="400" y1="170" x2="390" y2="60"/><line x1="390" y1="60" x2="300" y2="-25"/><line x1="300" y1="-25" x2="160" y2="-35"/><line x1="160" y1="-35" x2="40" y2="-20"/><line x1="40" y1="-20" x2="-35" y2="30"/><line x1="-35" y1="30" x2="110.4" y2="103.2"/><line x1="-50" y1="150" x2="54.8" y2="170.2"/><line x1="-30" y1="290" x2="58.2" y2="217.2"/><line x1="20" y1="390" x2="99.2" y2="326.8"/><line x1="150" y1="400" x2="147.2" y2="289.4"/><line x1="290" y1="385" x2="147.2" y2="289.4"/><line x1="385" y1="300" x2="244.3" y2="175.6"/><line x1="400" y1="170" x2="244.3" y2="175.6"/><line x1="390" y1="60" x2="286.8" y2="133.2"/><line x1="300" y1="-25" x2="286.8" y2="133.2"/><line x1="160" y1="-35" x2="110.4" y2="103.2"/><line x1="40" y1="-20" x2="110.4" y2="103.2"/></g>
+      <circle cx="-35" cy="30" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="-50" cy="150" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="-30" cy="290" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="20" cy="390" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="150" cy="400" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="290" cy="385" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="385" cy="300" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="400" cy="170" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="390" cy="60" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="300" cy="-25" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="160" cy="-35" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="40" cy="-20" r="1.8" fill="rgba(34,211,238,0.5)"/>
 
-      <!-- Kashmir extension (north) -->
-      <path fill="rgba(34,211,238,0.05)" stroke="rgba(34,211,238,0.5)" stroke-width="1" d="
-        M200,18 L192,12 L180,8 L168,10 L158,15 L148,22 L140,32 L140,48
-      "/>
+      <!-- India outline (geographically accurate) -->
+      <path id="india-outline" d="M78.0,3.6 L90.0,4.8 L102.0,14.4 L117.6,20.4 L130.8,34.8 L128.4,44.4 L134.4,56.4 L124.8,55.2 L129.6,70.8 L144.0,80.4 L156.0,86.4 L150.0,96.0 L168.0,105.6 L192.0,116.4 L213.6,126.0 L240.0,128.4 L241.2,111.6 L249.6,110.4 L258.0,124.8 L288.0,123.6 L288.0,112.8 L318.0,94.8 L336.0,93.6 L351.6,108.0 L338.4,118.8 L326.4,126.0 L320.4,140.4 L318.0,150.0 L303.6,158.4 L304.8,180.0 L295.2,183.6 L291.6,162.0 L283.2,171.6 L278.4,164.4 L261.6,142.8 L243.6,147.6 L240.0,154.8 L248.4,168.0 L252.0,182.4 L242.4,187.2 L228.0,186.0 L222.0,198.0 L204.0,208.8 L192.0,218.4 L171.6,236.4 L158.4,250.8 L147.6,256.8 L147.6,285.6 L142.8,302.4 L141.6,322.8 L135.6,334.8 L121.2,339.6 L114.0,349.2 L103.2,339.6 L98.4,326.4 L92.4,309.6 L81.6,290.4 L72.0,271.2 L69.6,260.4 L61.2,242.4 L57.6,218.4 L56.4,202.8 L55.2,187.2 L48.0,192.0 L33.6,198.0 L14.4,183.6 L9.6,177.6 L26.4,176.4 L20.4,170.4 L4.8,163.2 L8.4,154.8 L25.2,153.6 L33.6,144.0 L36.0,127.2 L24.0,122.4 L22.8,111.6 L48.0,98.4 L60.0,87.6 L70.8,74.4 L78.0,66.0 L87.6,58.8 L72.0,48.0 L70.8,33.6 L78.0,20.4 L78.0,3.6 Z" fill="url(#mapFill)" stroke="rgba(80,225,255,0.95)" stroke-width="1.6" stroke-linejoin="round" filter="url(#glow)"/>
 
-      <!-- Gujarat peninsula (west) -->
-      <path fill="rgba(34,211,238,0.05)" stroke="rgba(34,211,238,0.5)" stroke-width="1" d="
-        M108,178 L95,178 L85,185 L78,195 L75,208 L80,218 L88,208
-      "/>
+      <!-- Low-poly triangulated mesh -->
+      <g id="mesh" stroke="rgba(60,190,255,0.30)" stroke-width="0.7" fill="none"><line x1="110.4" y1="103.2" x2="108.0" y2="62.4"/><line x1="108.0" y1="62.4" x2="93.6" y2="70.8"/><line x1="93.6" y1="70.8" x2="110.4" y2="103.2"/><line x1="110.4" y1="103.2" x2="79.2" y2="123.6"/><line x1="79.2" y1="123.6" x2="54.8" y2="170.2"/><line x1="110.4" y1="103.2" x2="154.8" y2="124.8"/><line x1="154.8" y1="124.8" x2="205.2" y2="139.2"/><line x1="205.2" y1="139.2" x2="244.3" y2="175.6"/><line x1="154.8" y1="124.8" x2="180.0" y2="158.4"/><line x1="180.0" y1="158.4" x2="205.2" y2="139.2"/><line x1="154.8" y1="124.8" x2="120.0" y2="166.8"/><line x1="120.0" y1="166.8" x2="110.4" y2="103.2"/><line x1="79.2" y1="123.6" x2="120.0" y2="166.8"/><line x1="120.0" y1="166.8" x2="90.0" y2="194.4"/><line x1="90.0" y1="194.4" x2="54.8" y2="170.2"/><line x1="54.8" y1="170.2" x2="30.0" y2="168.0"/><line x1="30.0" y1="168.0" x2="58.2" y2="217.2"/><line x1="54.8" y1="170.2" x2="90.0" y2="194.4"/><line x1="120.0" y1="166.8" x2="163.2" y2="192.0"/><line x1="163.2" y1="192.0" x2="180.0" y2="158.4"/><line x1="180.0" y1="158.4" x2="213.6" y2="202.8"/><line x1="213.6" y1="202.8" x2="244.3" y2="175.6"/><line x1="163.2" y1="192.0" x2="213.6" y2="202.8"/><line x1="90.0" y1="194.4" x2="132.0" y2="207.6"/><line x1="132.0" y1="207.6" x2="58.2" y2="217.2"/><line x1="132.0" y1="207.6" x2="125.9" y2="237.8"/><line x1="163.2" y1="192.0" x2="125.9" y2="237.8"/><line x1="163.2" y1="192.0" x2="182.4" y2="234.0"/><line x1="182.4" y1="234.0" x2="213.6" y2="202.8"/><line x1="182.4" y1="234.0" x2="125.9" y2="237.8"/><line x1="182.4" y1="234.0" x2="147.2" y2="289.4"/><line x1="244.3" y1="175.6" x2="286.8" y2="133.2"/><line x1="58.2" y1="217.2" x2="70.3" y2="224.2"/><line x1="70.3" y1="224.2" x2="132.0" y2="207.6"/><line x1="70.3" y1="224.2" x2="106.8" y2="262.8"/><line x1="106.8" y1="262.8" x2="70.2" y2="261.6"/><line x1="70.2" y1="261.6" x2="58.2" y2="217.2"/><line x1="106.8" y1="262.8" x2="125.9" y2="237.8"/><line x1="106.8" y1="262.8" x2="115.2" y2="290.8"/><line x1="125.9" y1="237.8" x2="115.2" y2="290.8"/><line x1="125.9" y1="237.8" x2="147.2" y2="289.4"/><line x1="115.2" y1="290.8" x2="147.2" y2="289.4"/><line x1="115.2" y1="290.8" x2="128.4" y2="316.8"/><line x1="128.4" y1="316.8" x2="147.2" y2="289.4"/><line x1="128.4" y1="316.8" x2="99.2" y2="326.8"/><line x1="99.2" y1="326.8" x2="115.2" y2="290.8"/><line x1="70.2" y1="261.6" x2="115.2" y2="290.8"/><line x1="99.2" y1="326.8" x2="70.2" y2="261.6"/><line x1="90.0" y1="194.4" x2="163.2" y2="192.0"/><line x1="79.2" y1="123.6" x2="90.0" y2="194.4"/></g>
 
-      <!-- Northeast states -->
-      <path fill="rgba(34,211,238,0.04)" stroke="rgba(34,211,238,0.4)" stroke-width="1" d="
-        M390,125 L402,120 L415,118 L425,122 L430,132 L425,142
-        L418,148 L408,145 L398,140 L395,138
-      "/>
-
-      <!-- ═══ CONSTELLATION NETWORK LINES between cities ═══ -->
-      <g stroke="rgba(34,211,238,0.15)" stroke-width="0.8" fill="none">
-        <!-- Delhi hub -->
-        <line x1="245" y1="105" x2="178" y2="195"/><!-- DEL-AMD -->
-        <line x1="245" y1="105" x2="375" y2="142"/><!-- DEL-CCU -->
-        <line x1="245" y1="105" x2="195" y2="282"/><!-- DEL-BOM -->
-        <line x1="245" y1="105" x2="285" y2="318"/><!-- DEL-HYD -->
-        <!-- Mumbai hub -->
-        <line x1="195" y1="282" x2="178" y2="195"/><!-- BOM-AMD -->
-        <line x1="195" y1="282" x2="215" y2="310"/><!-- BOM-PNQ -->
-        <line x1="195" y1="282" x2="285" y2="318"/><!-- BOM-HYD -->
-        <line x1="195" y1="282" x2="178" y2="365"/><!-- BOM-GOI -->
-        <!-- South triangle -->
-        <line x1="275" y1="398" x2="315" y2="385"/><!-- BLR-MAA -->
-        <line x1="275" y1="398" x2="285" y2="318"/><!-- BLR-HYD -->
-        <line x1="275" y1="398" x2="215" y2="418"/><!-- BLR-COK -->
-        <line x1="315" y1="385" x2="285" y2="318"/><!-- MAA-HYD -->
-        <!-- Cross links -->
-        <line x1="375" y1="142" x2="285" y2="318"/><!-- CCU-HYD -->
-        <line x1="178" y1="365" x2="275" y2="398"/><!-- GOI-BLR -->
-        <line x1="215" y1="310" x2="285" y2="318"/><!-- PNQ-HYD -->
-      </g>
-
-      <!-- City glow dots (SVG layer) -->
-      <g filter="url(#glow2)">
-        <circle cx="245" cy="105" r="4" fill="var(--primary)" opacity="0.6"/><!-- DEL -->
-        <circle cx="195" cy="282" r="4" fill="var(--primary)" opacity="0.6"/><!-- BOM -->
-        <circle cx="275" cy="398" r="3.5" fill="var(--primary)" opacity="0.6"/><!-- BLR -->
-        <circle cx="315" cy="385" r="3.5" fill="var(--primary)" opacity="0.6"/><!-- MAA -->
-        <circle cx="375" cy="142" r="3.5" fill="var(--primary)" opacity="0.6"/><!-- CCU -->
-        <circle cx="285" cy="318" r="3.5" fill="var(--primary)" opacity="0.6"/><!-- HYD -->
-        <circle cx="215" cy="418" r="3" fill="var(--primary)" opacity="0.5"/><!-- COK -->
-        <circle cx="178" cy="365" r="3" fill="var(--primary)" opacity="0.5"/><!-- GOI -->
-        <circle cx="178" cy="195" r="3" fill="var(--primary)" opacity="0.5"/><!-- AMD -->
-        <circle cx="215" cy="310" r="3" fill="var(--primary)" opacity="0.5"/><!-- PNQ -->
-      </g>
+      <!-- Star flare nodes -->
+      <g stroke="rgba(170,235,255,0.9)" stroke-width="1" fill="#cfeeff" filter="url(#starGlow)"><g class="star" opacity="0.95"><line x1="100.4" y1="103.2" x2="120.4" y2="103.2"/><line x1="110.4" y1="93.2" x2="110.4" y2="113.2"/><circle cx="110.4" cy="103.2" r="2.6"/></g><g class="star" opacity="0.95"><line x1="48.2" y1="217.2" x2="68.2" y2="217.2"/><line x1="58.2" y1="207.2" x2="58.2" y2="227.2"/><circle cx="58.2" cy="217.2" r="2.6"/></g><g class="star" opacity="0.95"><line x1="105.2" y1="290.8" x2="125.2" y2="290.8"/><line x1="115.2" y1="280.8" x2="115.2" y2="300.8"/><circle cx="115.2" cy="290.8" r="2.6"/></g><g class="star" opacity="0.95"><line x1="137.2" y1="289.4" x2="157.2" y2="289.4"/><line x1="147.2" y1="279.4" x2="147.2" y2="299.4"/><circle cx="147.2" cy="289.4" r="2.6"/></g><g class="star" opacity="0.95"><line x1="234.3" y1="175.6" x2="254.3" y2="175.6"/><line x1="244.3" y1="165.6" x2="244.3" y2="185.6"/><circle cx="244.3" cy="175.6" r="2.6"/></g><g class="star" opacity="0.95"><line x1="115.9" y1="237.8" x2="135.9" y2="237.8"/><line x1="125.9" y1="227.8" x2="125.9" y2="247.8"/><circle cx="125.9" cy="237.8" r="2.6"/></g><g class="star" opacity="0.95"><line x1="89.2" y1="326.8" x2="109.2" y2="326.8"/><line x1="99.2" y1="316.8" x2="99.2" y2="336.8"/><circle cx="99.2" cy="326.8" r="2.6"/></g><g class="star" opacity="0.95"><line x1="60.2" y1="261.6" x2="80.2" y2="261.6"/><line x1="70.2" y1="251.60000000000002" x2="70.2" y2="271.6"/><circle cx="70.2" cy="261.6" r="2.6"/></g><g class="star" opacity="0.95"><line x1="44.8" y1="170.2" x2="64.8" y2="170.2"/><line x1="54.8" y1="160.2" x2="54.8" y2="180.2"/><circle cx="54.8" cy="170.2" r="2.6"/></g><g class="star" opacity="0.95"><line x1="60.3" y1="224.2" x2="80.3" y2="224.2"/><line x1="70.3" y1="214.2" x2="70.3" y2="234.2"/><circle cx="70.3" cy="224.2" r="2.6"/></g><g class="star" opacity="0.7"><line x1="87.6" y1="70.8" x2="99.6" y2="70.8"/><line x1="93.6" y1="64.8" x2="93.6" y2="76.8"/><circle cx="93.6" cy="70.8" r="1.8"/></g><g class="star" opacity="0.7"><line x1="148.8" y1="124.8" x2="160.8" y2="124.8"/><line x1="154.8" y1="118.8" x2="154.8" y2="130.8"/><circle cx="154.8" cy="124.8" r="1.8"/></g><g class="star" opacity="0.7"><line x1="199.2" y1="139.2" x2="211.2" y2="139.2"/><line x1="205.2" y1="133.2" x2="205.2" y2="145.2"/><circle cx="205.2" cy="139.2" r="1.8"/></g><g class="star" opacity="0.7"><line x1="114.0" y1="166.8" x2="126.0" y2="166.8"/><line x1="120.0" y1="160.8" x2="120.0" y2="172.8"/><circle cx="120.0" cy="166.8" r="1.8"/></g><g class="star" opacity="0.7"><line x1="157.2" y1="192.0" x2="169.2" y2="192.0"/><line x1="163.2" y1="186.0" x2="163.2" y2="198.0"/><circle cx="163.2" cy="192.0" r="1.8"/></g><g class="star" opacity="0.7"><line x1="207.6" y1="202.8" x2="219.6" y2="202.8"/><line x1="213.6" y1="196.8" x2="213.6" y2="208.8"/><circle cx="213.6" cy="202.8" r="1.8"/></g><g class="star" opacity="0.7"><line x1="73.2" y1="123.6" x2="85.2" y2="123.6"/><line x1="79.2" y1="117.6" x2="79.2" y2="129.6"/><circle cx="79.2" cy="123.6" r="1.8"/></g><g class="star" opacity="0.7"><line x1="126.0" y1="207.6" x2="138.0" y2="207.6"/><line x1="132.0" y1="201.6" x2="132.0" y2="213.6"/><circle cx="132.0" cy="207.6" r="1.8"/></g><g class="star" opacity="0.7"><line x1="176.4" y1="234.0" x2="188.4" y2="234.0"/><line x1="182.4" y1="228.0" x2="182.4" y2="240.0"/><circle cx="182.4" cy="234.0" r="1.8"/></g><g class="star" opacity="0.7"><line x1="100.8" y1="262.8" x2="112.8" y2="262.8"/><line x1="106.8" y1="256.8" x2="106.8" y2="268.8"/><circle cx="106.8" cy="262.8" r="1.8"/></g><g class="star" opacity="0.7"><line x1="122.4" y1="316.8" x2="134.4" y2="316.8"/><line x1="128.4" y1="310.8" x2="128.4" y2="322.8"/><circle cx="128.4" cy="316.8" r="1.8"/></g><g class="star" opacity="0.7"><line x1="280.8" y1="133.2" x2="292.8" y2="133.2"/><line x1="286.8" y1="127.19999999999999" x2="286.8" y2="139.2"/><circle cx="286.8" cy="133.2" r="1.8"/></g><g class="star" opacity="0.7"><line x1="84.0" y1="194.4" x2="96.0" y2="194.4"/><line x1="90.0" y1="188.4" x2="90.0" y2="200.4"/><circle cx="90.0" cy="194.4" r="1.8"/></g><g class="star" opacity="0.7"><line x1="174.0" y1="158.4" x2="186.0" y2="158.4"/><line x1="180.0" y1="152.4" x2="180.0" y2="164.4"/><circle cx="180.0" cy="158.4" r="1.8"/></g><g class="star" opacity="0.7"><line x1="24.0" y1="168.0" x2="36.0" y2="168.0"/><line x1="30.0" y1="162.0" x2="30.0" y2="174.0"/><circle cx="30.0" cy="168.0" r="1.8"/></g><g class="star" opacity="0.7"><line x1="102.0" y1="62.4" x2="114.0" y2="62.4"/><line x1="108.0" y1="56.4" x2="108.0" y2="68.4"/><circle cx="108.0" cy="62.4" r="1.8"/></g></g>
     </svg>
 
-    <!-- HTML city pins for interactivity -->
-    <div class="city-pin" style="left:49%;top:21.5%" data-city="Delhi" data-iata="DEL" data-state="Delhi NCT">
+    <div class="city-pin" style="left:36.1%;top:30.0%" data-city="Delhi" data-iata="DEL" data-state="Delhi NCT">
       <div class="city-pin-dot"></div>
       <div class="city-pin-label">DEL · New Delhi</div>
     </div>
-    <div class="city-pin" style="left:37%;top:58.5%" data-city="Mumbai" data-iata="BOM" data-state="Maharashtra">
+    <div class="city-pin" style="left:25.6%;top:52.4%" data-city="Mumbai" data-iata="BOM" data-state="Maharashtra">
       <div class="city-pin-dot"></div>
       <div class="city-pin-label left">BOM · Mumbai</div>
     </div>
-    <div class="city-pin" style="left:53%;top:83%" data-city="Bengaluru" data-iata="BLR" data-state="Karnataka">
+    <div class="city-pin" style="left:37.0%;top:66.8%" data-city="Bengaluru" data-iata="BLR" data-state="Karnataka">
       <div class="city-pin-dot"></div>
-      <div class="city-pin-label">BLR · Bengaluru</div>
+      <div class="city-pin-label left">BLR · Bengaluru</div>
     </div>
-    <div class="city-pin" style="left:61%;top:80%" data-city="Chennai" data-iata="MAA" data-state="Tamil Nadu">
+    <div class="city-pin" style="left:43.4%;top:66.5%" data-city="Chennai" data-iata="MAA" data-state="Tamil Nadu">
       <div class="city-pin-dot"></div>
       <div class="city-pin-label">MAA · Chennai</div>
     </div>
-    <div class="city-pin" style="left:74%;top:29%" data-city="Kolkata" data-iata="CCU" data-state="West Bengal">
+    <div class="city-pin" style="left:62.9%;top:44.2%" data-city="Kolkata" data-iata="CCU" data-state="West Bengal">
       <div class="city-pin-dot"></div>
       <div class="city-pin-label">CCU · Kolkata</div>
     </div>
-    <div class="city-pin" style="left:55.5%;top:66%" data-city="Hyderabad" data-iata="HYD" data-state="Telangana">
+    <div class="city-pin" style="left:39.2%;top:56.4%" data-city="Hyderabad" data-iata="HYD" data-state="Telangana">
       <div class="city-pin-dot"></div>
-      <div class="city-pin-label">HYD</div>
+      <div class="city-pin-label">HYD · Hyderabad</div>
     </div>
-    <div class="city-pin" style="left:41%;top:87%" data-city="Kochi" data-iata="COK" data-state="Kerala">
+    <div class="city-pin" style="left:33.8%;top:73.9%" data-city="Kochi" data-iata="COK" data-state="Kerala">
       <div class="city-pin-dot"></div>
       <div class="city-pin-label left">COK · Kochi</div>
     </div>
-    <div class="city-pin" style="left:34%;top:76%" data-city="Goa" data-iata="GOI" data-state="Goa">
+    <div class="city-pin" style="left:28.0%;top:61.1%" data-city="Goa" data-iata="GOI" data-state="Goa">
       <div class="city-pin-dot"></div>
       <div class="city-pin-label left">GOI · Goa</div>
     </div>
-    <div class="city-pin" style="left:34%;top:40%" data-city="Ahmedabad" data-iata="AMD" data-state="Gujarat">
+    <div class="city-pin" style="left:25.0%;top:43.2%" data-city="Ahmedabad" data-iata="AMD" data-state="Gujarat">
       <div class="city-pin-dot"></div>
       <div class="city-pin-label left">AMD</div>
     </div>
-    <div class="city-pin" style="left:41%;top:64.5%" data-city="Pune" data-iata="PNQ" data-state="Maharashtra">
+    <div class="city-pin" style="left:28.1%;top:53.8%" data-city="Pune" data-iata="PNQ" data-state="Maharashtra">
       <div class="city-pin-dot"></div>
-      <div class="city-pin-label left">PNQ</div>
+      <div class="city-pin-label">PNQ</div>
     </div>
   </div>
 </div>

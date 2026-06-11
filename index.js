@@ -23,7 +23,7 @@ if (!command || command === 'boot' || command === 'start') {
     process.exit(1);
   }
   if (hasGemini) {
-    display.log('API', chalk.green('Using Google Gemini 2.0 Flash (FREE tier)'), 'success');
+    display.log('API', chalk.green('Gemini key found — verifying...'), 'info');
   } else {
     display.log('API', chalk.yellow('Gemini key not set — using Groq fallback. Get free Gemini key: https://aistudio.google.com/apikey'), 'warning');
   }
@@ -32,6 +32,20 @@ if (!command || command === 'boot' || command === 'start') {
   const shell        = require('./core/shell');
   const orchestrator = require('./core/orchestrator');
   const sys          = require('./tools/system-actions');
+
+  // Verify the Gemini key in the background and report clearly
+  if (hasGemini) {
+    orchestrator.verifyGemini().then(r => {
+      if (r.ok) {
+        display.log('API', chalk.green(`✓ Gemini key VALID — using model: ${r.model} (FREE tier)`), 'success');
+        dash.log('SYSTEM', `Gemini connected (${r.model})`, 'success');
+      } else {
+        display.log('API', chalk.red(`✗ Gemini key FAILED: ${r.reason}`), 'alert');
+        dash.log('SYSTEM', `Gemini key failed: ${r.reason}`, 'alert');
+        if (hasGroq) display.log('API', chalk.yellow('Will fall back to Groq for commands.'), 'warning');
+      }
+    }).catch(() => {});
+  }
 
   // 1. Start the dashboard server
   const port = parseInt(process.env.DASHBOARD_PORT || '7777', 10);
@@ -62,6 +76,26 @@ if (!command || command === 'boot' || command === 'start') {
 // ─────────────────────────────────────────────────────────────────────────────
 // Other commands
 // ─────────────────────────────────────────────────────────────────────────────
+
+else if (command === 'testkey') {
+  display.header();
+  display.log('TEST', 'Verifying GEMINI_API_KEY from .env ...', 'info');
+  const { verifyGemini } = require('./core/orchestrator');
+  verifyGemini().then(r => {
+    if (r.ok) {
+      display.log('TEST', chalk.green(`✓ KEY WORKS — model: ${r.model}. You're good to go: npm start`), 'success');
+    } else {
+      display.log('TEST', chalk.red(`✗ KEY FAILED`), 'alert');
+      display.log('TEST', chalk.red(r.reason), 'alert');
+      console.log(chalk.yellow('\n  How to fix:'));
+      console.log(chalk.white('  1. Open https://aistudio.google.com/apikey'));
+      console.log(chalk.white('  2. Click "Create API key" (key should start with AIza...)'));
+      console.log(chalk.white('  3. In .env set:  GEMINI_API_KEY=AIza...   (no quotes, no spaces)'));
+      console.log(chalk.white('  4. Run:  node index.js testkey\n'));
+    }
+    process.exit(r.ok ? 0 : 1);
+  });
+}
 
 else if (command === 'status') {
   display.header();
