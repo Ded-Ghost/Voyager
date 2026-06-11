@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOYAGER — Command Surface</title>
+<link rel="preconnect" href="https://unpkg.com">
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --bg:#000308;
+    --panel:rgba(8,15,30,0.55);
+    --panel-line:rgba(34,211,238,0.18);
+    --primary:#22d3ee;
+    --primary-glow:rgba(34,211,238,0.5);
+    --accent:#a78bfa;
+    --warn:#fbbf24;
+    --danger:#f87171;
+    --success:#34d399;
+    --text:#cbd5e1;
+    --text-dim:#64748b;
+    --text-bright:#e0f2fe;
+  }
+  html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-family:'SF Mono','Consolas','Cascadia Code',monospace;font-size:12px;overflow:hidden;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(34,211,238,0.04) 0%,transparent 60%);pointer-events:none;z-index:1;}
+  body::after{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,transparent 0px,transparent 3px,rgba(34,211,238,0.025) 3px,rgba(34,211,238,0.025) 4px);pointer-events:none;z-index:2;animation:scanlines 8s linear infinite;}
+  @keyframes scanlines{0%{transform:translateY(0)}100%{transform:translateY(4px)}}
+
+  /* GLOBE */
+  #globe-container{position:fixed;inset:0;z-index:0;}
+  #globe-container canvas{cursor:grab;}
+  #globe-container canvas:active{cursor:grabbing;}
+
+  /* HUD FRAME */
+  .hud-frame{position:fixed;inset:14px;z-index:5;pointer-events:none;}
+  .corner{position:absolute;width:32px;height:32px;border:1px solid var(--primary);opacity:0.7;}
+  .corner.tl{top:0;left:0;border-right:none;border-bottom:none;}
+  .corner.tr{top:0;right:0;border-left:none;border-bottom:none;}
+  .corner.bl{bottom:0;left:0;border-right:none;border-top:none;}
+  .corner.br{bottom:0;right:0;border-left:none;border-top:none;}
+
+  /* TOP BAR */
+  .topbar{position:fixed;top:18px;left:24px;right:24px;z-index:10;display:flex;justify-content:space-between;align-items:center;pointer-events:none;}
+  .brand{display:flex;align-items:center;gap:14px;pointer-events:auto;}
+  .brand .mark{width:34px;height:34px;border:1px solid var(--primary);position:relative;display:flex;align-items:center;justify-content:center;background:rgba(0,3,8,0.7);}
+  .brand .mark::before,.brand .mark::after{content:'';position:absolute;background:var(--primary);}
+  .brand .mark::before{width:2px;height:14px;}
+  .brand .mark::after{width:14px;height:2px;}
+  .brand .mark{animation:markpulse 3s ease-in-out infinite;}
+  @keyframes markpulse{0%,100%{box-shadow:0 0 0 0 var(--primary-glow);}50%{box-shadow:0 0 18px 2px var(--primary-glow);}}
+  .brand-text h1{font-size:14px;font-weight:600;letter-spacing:0.3em;color:var(--text-bright);}
+  .brand-text .sub{font-size:9px;color:var(--text-dim);letter-spacing:0.2em;text-transform:uppercase;margin-top:1px;}
+
+  .status-cluster{display:flex;gap:10px;pointer-events:auto;}
+  .pill{display:flex;align-items:center;gap:7px;padding:5px 12px;background:var(--panel);border:1px solid var(--panel-line);font-size:10px;letter-spacing:0.1em;color:var(--text);text-transform:uppercase;}
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--text-dim);}
+  .pill.on .dot{background:var(--success);box-shadow:0 0 10px var(--success);animation:pulse 2s infinite;}
+  .pill.alert .dot{background:var(--danger);box-shadow:0 0 12px var(--danger);}
+  .pill.active .dot{background:var(--primary);box-shadow:0 0 12px var(--primary);animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.35;}}
+
+  .icon-btn{background:var(--panel);border:1px solid var(--panel-line);color:var(--text);width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all 0.2s;}
+  .icon-btn:hover{border-color:var(--primary);color:var(--primary);}
+  .icon-btn.off{color:var(--text-dim);}
+
+  /* LEFT PANEL — AGENTS + METRICS */
+  .panel-left{position:fixed;top:74px;left:24px;width:260px;z-index:10;display:flex;flex-direction:column;gap:12px;pointer-events:auto;}
+
+  /* RIGHT PANEL — TELEMETRY */
+  .panel-right{position:fixed;top:74px;right:24px;width:320px;bottom:160px;z-index:10;display:flex;flex-direction:column;gap:12px;overflow-y:auto;pointer-events:auto;}
+  .panel-right::-webkit-scrollbar{width:5px;}
+  .panel-right::-webkit-scrollbar-thumb{background:rgba(34,211,238,0.3);}
+
+  .panel{background:var(--panel);border:1px solid var(--panel-line);backdrop-filter:blur(8px);padding:13px;position:relative;}
+  .panel::before{content:'';position:absolute;top:-1px;left:-1px;width:10px;height:10px;border-top:1px solid var(--primary);border-left:1px solid var(--primary);}
+  .panel::after{content:'';position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-bottom:1px solid var(--primary);border-right:1px solid var(--primary);}
+  .panel h2{font-size:9px;font-weight:600;letter-spacing:0.22em;color:var(--primary);text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--panel-line);display:flex;align-items:center;gap:6px;}
+  .panel h2 .marker{width:5px;height:5px;background:var(--primary);box-shadow:0 0 6px var(--primary);}
+
+  /* AGENT ROWS */
+  .agent{display:flex;align-items:center;gap:10px;padding:7px 9px;background:rgba(0,0,0,0.3);border-left:2px solid transparent;margin-bottom:5px;transition:all 0.3s;}
+  .agent.idle{border-left-color:var(--text-dim);}
+  .agent.active{border-left-color:var(--primary);background:rgba(34,211,238,0.06);}
+  .agent.alert{border-left-color:var(--danger);background:rgba(248,113,113,0.07);animation:agentflash 1.5s ease-out;}
+  @keyframes agentflash{0%{background:rgba(248,113,113,0.25);}100%{background:rgba(248,113,113,0.07);}}
+  .agent-icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;}
+  .agent-name{flex:1;font-size:11px;color:var(--text-bright);}
+  .agent-state{font-size:9px;letter-spacing:0.1em;color:var(--text-dim);text-transform:uppercase;}
+  .agent.active .agent-state{color:var(--primary);}
+  .agent.alert .agent-state{color:var(--danger);}
+
+  /* METRICS */
+  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
+  .metric{background:rgba(0,0,0,0.3);border:1px solid rgba(34,211,238,0.1);padding:8px;}
+  .metric-label{font-size:8px;color:var(--text-dim);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:3px;}
+  .metric-value{font-size:17px;color:var(--primary);font-weight:600;font-variant-numeric:tabular-nums;text-shadow:0 0 8px rgba(34,211,238,0.4);}
+
+  .kv{display:flex;justify-content:space-between;padding:4px 0;font-size:10px;border-bottom:1px dashed rgba(34,211,238,0.1);}
+  .kv:last-child{border-bottom:none;}
+  .kv .k{color:var(--text-dim);}
+  .kv .v{color:var(--text-bright);font-variant-numeric:tabular-nums;}
+
+  /* WEATHER */
+  .day-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+  .day-pill{background:rgba(0,0,0,0.4);border:1px solid rgba(34,211,238,0.15);padding:7px 4px;text-align:center;transition:all 0.3s;}
+  .day-pill.alert{border-color:var(--danger);background:rgba(248,113,113,0.08);}
+  .day-pill .label{font-size:8px;color:var(--text-dim);letter-spacing:0.1em;}
+  .day-pill .temp{font-size:14px;color:var(--text-bright);font-weight:600;margin:2px 0;}
+  .day-pill .desc{font-size:8px;color:var(--text);min-height:18px;display:flex;align-items:center;justify-content:center;}
+  .day-pill .rain{font-size:9px;color:var(--primary);margin-top:2px;}
+  .day-pill .rain.high{color:var(--danger);}
+
+  /* AQI */
+  .aqi-display{display:flex;align-items:center;gap:11px;padding:9px;background:rgba(0,0,0,0.4);border:1px solid rgba(34,211,238,0.1);margin-bottom:7px;}
+  .aqi-num{font-size:28px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
+  .aqi-num.good{color:var(--success);text-shadow:0 0 10px var(--success);}
+  .aqi-num.mod{color:var(--warn);text-shadow:0 0 10px var(--warn);}
+  .aqi-num.bad{color:var(--danger);text-shadow:0 0 10px var(--danger);}
+  .aqi-info .cat{font-size:11px;color:var(--text-bright);font-weight:600;}
+  .aqi-info .rec{font-size:9px;color:var(--text-dim);line-height:1.4;margin-top:2px;}
+
+  /* QUAKES */
+  .quake-row{display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(0,0,0,0.3);border:1px solid rgba(34,211,238,0.08);margin-bottom:4px;}
+  .quake-mag{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;}
+  .quake-mag.major{color:var(--danger);text-shadow:0 0 8px var(--danger);}
+  .quake-mag.minor{color:var(--warn);}
+  .quake-place{flex:1;font-size:9px;color:var(--text);}
+  .quake-dist{font-size:9px;color:var(--text-dim);font-variant-numeric:tabular-nums;}
+
+  /* ACTIVITY FEED — bottom center */
+  .feed-wrapper{position:fixed;left:50%;transform:translateX(-50%);bottom:110px;width:680px;max-width:calc(100vw - 64px);z-index:10;pointer-events:auto;}
+  .feed{background:var(--panel);border:1px solid var(--panel-line);backdrop-filter:blur(8px);max-height:180px;overflow-y:auto;padding:10px 14px;}
+  .feed::-webkit-scrollbar{width:4px;}
+  .feed::-webkit-scrollbar-thumb{background:rgba(34,211,238,0.25);}
+  .feed-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid var(--panel-line);}
+  .feed-header span{font-size:9px;color:var(--primary);letter-spacing:0.22em;text-transform:uppercase;}
+  .event{font-size:10px;padding:3px 0;border-left:2px solid transparent;padding-left:8px;margin-bottom:2px;animation:eventin 0.3s ease;}
+  @keyframes eventin{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:translateX(0);}}
+  .event.tool{border-left-color:var(--accent);}
+  .event.success{border-left-color:var(--success);}
+  .event.alert{border-left-color:var(--danger);background:rgba(248,113,113,0.05);}
+  .event.ipc{border-left-color:var(--warn);background:rgba(251,191,36,0.05);}
+  .event.reply{border-left-color:var(--primary);background:rgba(34,211,238,0.04);color:var(--text-bright);}
+  .event-tag{color:var(--primary);font-weight:600;}
+  .event.tool .event-tag{color:var(--accent);}
+  .event.success .event-tag{color:var(--success);}
+  .event.alert .event-tag{color:var(--danger);}
+  .event.ipc .event-tag{color:var(--warn);}
+  .event-time{color:var(--text-dim);margin-right:6px;}
+
+  /* COMMAND BAR — bottom */
+  .commandbar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:680px;max-width:calc(100vw - 64px);z-index:11;display:flex;gap:8px;align-items:stretch;pointer-events:auto;}
+  .commandbar .prompt{display:flex;align-items:center;justify-content:center;width:34px;background:var(--panel);border:1px solid var(--primary);color:var(--primary);font-size:14px;font-weight:700;}
+  .commandbar input{flex:1;background:var(--panel);border:1px solid var(--panel-line);color:var(--text-bright);padding:11px 16px;font-family:inherit;font-size:13px;outline:none;transition:all 0.2s;}
+  .commandbar input:focus{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary),0 0 18px rgba(34,211,238,0.3);}
+  .commandbar input::placeholder{color:var(--text-dim);font-style:italic;}
+  .commandbar button{background:var(--panel);border:1px solid var(--primary);color:var(--primary);padding:0 22px;font-family:inherit;font-size:11px;letter-spacing:0.2em;cursor:pointer;text-transform:uppercase;transition:all 0.2s;}
+  .commandbar button:hover{background:var(--primary);color:var(--bg);}
+  .commandbar button:disabled{opacity:0.5;cursor:not-allowed;}
+
+  /* TOAST ALERT */
+  .toast-stack{position:fixed;top:74px;left:50%;transform:translateX(-50%);z-index:20;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+  .toast{background:rgba(248,113,113,0.15);border:1px solid var(--danger);color:var(--danger);padding:11px 18px;font-size:11px;letter-spacing:0.05em;backdrop-filter:blur(8px);animation:toastin 0.4s ease;text-shadow:0 0 6px rgba(248,113,113,0.4);box-shadow:0 0 24px rgba(248,113,113,0.2);}
+  .toast.medium{border-color:var(--warn);color:var(--warn);background:rgba(251,191,36,0.12);box-shadow:0 0 24px rgba(251,191,36,0.2);}
+  @keyframes toastin{from{opacity:0;transform:translateY(-12px);}to{opacity:1;transform:translateY(0);}}
+
+  /* BOOT OVERLAY */
+  .boot-overlay{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;transition:opacity 0.8s;}
+  .boot-overlay.gone{opacity:0;pointer-events:none;}
+  .boot-text{font-size:11px;letter-spacing:0.4em;color:var(--primary);text-transform:uppercase;}
+  .boot-bar{width:300px;height:2px;background:rgba(34,211,238,0.15);position:relative;overflow:hidden;}
+  .boot-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--primary);box-shadow:0 0 12px var(--primary);animation:bootfill 1.8s ease-out forwards;}
+  @keyframes bootfill{to{width:100%;}}
+
+  /* THINKING/REPLY DISPLAY */
+  .voice-bubble{position:fixed;top:50%;left:24px;transform:translateY(-50%);max-width:330px;z-index:12;pointer-events:none;opacity:0;transition:opacity 0.4s;}
+  .voice-bubble.show{opacity:1;}
+  .voice-bubble-inner{background:var(--panel);border:1px solid var(--primary);padding:13px 16px;backdrop-filter:blur(8px);font-size:12px;color:var(--text-bright);line-height:1.55;box-shadow:0 0 30px rgba(34,211,238,0.15);}
+  .voice-bubble-inner::before{content:'V';position:absolute;left:-10px;top:50%;transform:translateY(-50%);background:var(--primary);color:var(--bg);width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;}
+
+  /* MOBILE */
+  @media (max-width:1100px){
+    .panel-left,.panel-right{position:static;width:auto;}
+    .feed-wrapper,.commandbar{width:calc(100vw - 32px);}
+  }
+  .empty{text-align:center;color:var(--text-dim);font-size:10px;font-style:italic;padding:8px 0;}
+</style>
+</head>
+<body>
+
+<!-- BOOT OVERLAY -->
+<div class="boot-overlay" id="boot">
+  <div class="boot-text">Initializing VOYAGER</div>
+  <div class="boot-bar"><div class="boot-fill"></div></div>
+  <div class="boot-text" style="font-size:9px;letter-spacing:0.2em;color:var(--text-dim);">Establishing uplink...</div>
+</div>
+
+<!-- HUD FRAME -->
+<div class="hud-frame">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+</div>
+
+<!-- GLOBE -->
+<div id="globe-container"></div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="mark"></div>
+    <div class="brand-text">
+      <h1>V O Y A G E R</h1>
+      <div class="sub">Travel Intelligence System · v2.5</div>
+    </div>
+  </div>
+  <div class="status-cluster">
+    <div class="pill" id="conn-pill"><div class="dot"></div><span id="conn-text">Linking</span></div>
+    <div class="pill" id="agent-pill"><div class="dot"></div><span>Orchestrator</span></div>
+    <button class="icon-btn" id="sound-btn" title="Toggle sound">🔊</button>
+    <button class="icon-btn" id="mute-btn"  title="Toggle voice">🎙</button>
+  </div>
+</div>
+
+<!-- LEFT PANEL -->
+<div class="panel-left">
+  <div class="panel">
+    <h2><span class="marker"></span>Agent network</h2>
+    <div class="agent idle" id="agent-orchestrator">
+      <div class="agent-icon">◆</div>
+      <div class="agent-name">Orchestrator</div>
+      <div class="agent-state" id="state-orchestrator">idle</div>
+    </div>
+    <div class="agent idle" id="agent-rerouter">
+      <div class="agent-icon">⚡</div>
+      <div class="agent-name">Re-Router</div>
+      <div class="agent-state" id="state-rerouter">standby</div>
+    </div>
+    <div class="agent idle" style="opacity:0.5">
+      <div class="agent-icon">▢</div>
+      <div class="agent-name">Planner</div>
+      <div class="agent-state">partner</div>
+    </div>
+    <div class="agent idle" style="opacity:0.5">
+      <div class="agent-icon">▣</div>
+      <div class="agent-name">Booking</div>
+      <div class="agent-state">partner</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="marker"></span>Telemetry</h2>
+    <div class="metric-grid">
+      <div class="metric"><div class="metric-label">Commands</div><div class="metric-value" id="m-cmds">0</div></div>
+      <div class="metric"><div class="metric-label">Tools fired</div><div class="metric-value" id="m-tools">0</div></div>
+      <div class="metric"><div class="metric-label">Tokens</div><div class="metric-value" id="m-tokens">0</div></div>
+      <div class="metric"><div class="metric-label">Est. cost</div><div class="metric-value" id="m-cost">$0</div></div>
+    </div>
+    <div class="kv"><span class="k">Destination</span><span class="v" id="m-dest">—</span></div>
+    <div class="kv"><span class="k">Last cycle</span><span class="v" id="m-duration">—</span></div>
+    <div class="kv"><span class="k">IPC signals</span><span class="v" id="m-signals">0</span></div>
+    <div class="kv"><span class="k">Active alerts</span><span class="v" id="m-alerts">0</span></div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="panel-right">
+  <div class="panel">
+    <h2><span class="marker"></span>Forecast</h2>
+    <div id="forecast"><div class="empty">Globe locked. Awaiting command.</div></div>
+  </div>
+  <div class="panel">
+    <h2><span class="marker"></span>Atmospheric</h2>
+    <div id="aqi"><div class="empty">No data.</div></div>
+  </div>
+  <div class="panel">
+    <h2><span class="marker"></span>Seismic</h2>
+    <div id="seismic"><div class="empty">No data.</div></div>
+  </div>
+</div>
+
+<!-- TOAST ALERTS -->
+<div class="toast-stack" id="toasts"></div>
+
+<!-- VOICE BUBBLE -->
+<div class="voice-bubble" id="voice"><div class="voice-bubble-inner" id="voice-text"></div></div>
+
+<!-- ACTIVITY FEED -->
+<div class="feed-wrapper">
+  <div class="feed" id="feed">
+    <div class="feed-header"><span>Activity stream</span><span id="feed-count">0 events</span></div>
+    <div id="feed-items"><div class="empty">Standing by.</div></div>
+  </div>
+</div>
+
+<!-- COMMAND BAR -->
+<div class="commandbar">
+  <div class="prompt">▸</div>
+  <input id="cmd-input" type="text" placeholder='Enter command — e.g. "monitor Tokyo for next week"' autocomplete="off" />
+  <button id="cmd-send">Execute</button>
+</div>
+
+<!-- SCRIPTS -->
+<script src="https://unpkg.com/three@0.150.0/build/three.min.js"></script>
+<script src="https://unpkg.com/globe.gl"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+const state = { cmds:0, tools:0, tokens:0, cost:0, signals:0, alerts:0, events:0 };
+const $ = id => document.getElementById(id);
+const fmt = n => n >= 1000 ? (n/1000).toFixed(1)+'k' : n;
+let soundOn = true;
+let muted   = false;
+
+// ═══════════════════════════════════════════════════════════════════
+// SOUND ENGINE (Web Audio API)
+// ═══════════════════════════════════════════════════════════════════
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function tone(freq, duration, type='sine', vol=0.07) {
+  if (!soundOn) return;
+  ensureAudio();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.value = vol;
+  o.connect(g); g.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  g.gain.setValueAtTime(vol, now);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  o.start(now); o.stop(now + duration);
+}
+function sweep(fromHz, toHz, duration, type='sine', vol=0.07) {
+  if (!soundOn) return;
+  ensureAudio();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type;
+  o.connect(g); g.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  o.frequency.setValueAtTime(fromHz, now);
+  o.frequency.exponentialRampToValueAtTime(toHz, now + duration);
+  g.gain.setValueAtTime(vol, now);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  o.start(now); o.stop(now + duration);
+}
+const sfx = {
+  boot:    () => { sweep(120, 880, 0.6, 'sine', 0.08); setTimeout(() => tone(1320, 0.15, 'sine', 0.06), 600); },
+  beep:    () => tone(1400, 0.06, 'sine', 0.05),
+  success: () => { tone(880, 0.08, 'sine', 0.06); setTimeout(() => tone(1320, 0.14, 'sine', 0.05), 80); },
+  error:   () => { tone(200, 0.18, 'square', 0.05); },
+  alert:   () => { for (let i=0;i<3;i++) setTimeout(() => tone(1100, 0.08, 'square', 0.06), i*140); },
+  lock_on: () => { sweep(200, 1200, 0.35, 'sine', 0.07); setTimeout(() => tone(1500, 0.1, 'sine', 0.04), 360); },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// GLOBE
+// ═══════════════════════════════════════════════════════════════════
+const globe = Globe()(document.getElementById('globe-container'))
+  .backgroundColor('rgba(0,0,0,0)')
+  .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
+  .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+  .showAtmosphere(true)
+  .atmosphereColor('#22d3ee')
+  .atmosphereAltitude(0.22)
+  .pointsData([])
+  .pointAltitude(0.04)
+  .pointColor(() => '#22d3ee')
+  .pointRadius(0.6)
+  .pointsMerge(false)
+  .ringsData([])
+  .ringColor(() => t => `rgba(248,113,113,${1-t})`)
+  .ringMaxRadius(8)
+  .ringPropagationSpeed(4)
+  .ringRepeatPeriod(900)
+  .labelsData([])
+  .labelText('label')
+  .labelColor(() => '#22d3ee')
+  .labelDotRadius(0.4)
+  .labelSize(0.9)
+  .labelResolution(2)
+  .labelAltitude(0.02)
+  .labelsTransitionDuration(800)
+  .onPolygonClick(handleCountryClick);
+
+setTimeout(() => {
+  globe.controls().autoRotate = true;
+  globe.controls().autoRotateSpeed = 0.45;
+  globe.controls().enableZoom = true;
+  resizeGlobe();
+}, 50);
+
+window.addEventListener('resize', resizeGlobe);
+function resizeGlobe() {
+  globe.width(window.innerWidth);
+  globe.height(window.innerHeight);
+}
+
+// Load country polygons from a reliable CDN (best-effort, ~270KB)
+fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
+  .then(r => r.json())
+  .then(geo => {
+    globe
+      .polygonsData(geo.features)
+      .polygonCapColor(() => 'rgba(34,211,238,0.06)')
+      .polygonSideColor(() => 'rgba(34,211,238,0.12)')
+      .polygonStrokeColor(() => 'rgba(34,211,238,0.4)')
+      .polygonAltitude(0.005)
+      .polygonsTransitionDuration(300);
+  })
+  .catch(() => console.warn('Country polygons unavailable — globe runs without clickable countries.'));
+
+function handleCountryClick(feature) {
+  if (!feature || !feature.properties) return;
+  const name = feature.properties.name || feature.properties.NAME;
+  if (!name) return;
+  sfx.lock_on();
+  sendCommand(`monitor ${name}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WEBSOCKET
+// ═══════════════════════════════════════════════════════════════════
+let ws = null;
+function connect() {
+  ws = new WebSocket(`ws://${location.host}`);
+  ws.onopen  = () => { $('conn-pill').classList.add('on'); $('conn-text').textContent = 'Linked'; };
+  ws.onclose = () => { $('conn-pill').classList.remove('on'); $('conn-text').textContent = 'Reconnecting'; setTimeout(connect, 2000); };
+  ws.onmessage = (m) => {
+    const e = JSON.parse(m.data);
+    if (e.type === 'replay') e.events.forEach(handle);
+    else handle(e);
+  };
+}
+connect();
+
+function sendCommand(text) {
+  if (!text || ws?.readyState !== 1) return;
+  ws.send(JSON.stringify({ type:'command', text }));
+  $('cmd-input').value = '';
+  sfx.beep();
+}
+
+// Command bar wiring
+$('cmd-send').onclick = () => sendCommand($('cmd-input').value.trim());
+$('cmd-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCommand($('cmd-input').value.trim()); });
+$('sound-btn').onclick = () => { soundOn = !soundOn; $('sound-btn').classList.toggle('off', !soundOn); $('sound-btn').textContent = soundOn ? '🔊' : '🔇'; };
+$('mute-btn').onclick  = () => { muted = !muted; $('mute-btn').classList.toggle('off', muted); sendCommand(muted ? 'go quiet' : 'speak again'); };
+
+// ═══════════════════════════════════════════════════════════════════
+// EVENT HANDLER
+// ═══════════════════════════════════════════════════════════════════
+function handle(e) {
+  state.events++; $('feed-count').textContent = state.events + ' events';
+
+  switch (e.type) {
+    case 'welcome':
+      setTimeout(() => $('boot').classList.add('gone'), 200);
+      sfx.boot();
+      break;
+
+    case 'agent_status': {
+      const id = e.agent.toLowerCase().includes('reroute') ? 'agent-rerouter' : 'agent-orchestrator';
+      const node = $(id);
+      if (node) {
+        node.className = 'agent ' + e.status;
+        $(id.replace('agent-', 'state-')).textContent = e.status;
+      }
+      const pill = $('agent-pill');
+      pill.className = 'pill ' + (e.status === 'active' ? 'active' : e.status === 'alert' ? 'alert' : '');
+      break;
+    }
+
+    case 'log':
+      addFeedEvent(e.agent, e.message, e.level || 'info');
+      break;
+
+    case 'tool_call':
+      state.tools++; $('m-tools').textContent = state.tools;
+      addFeedEvent('TOOL', `→ ${e.name}`, 'tool');
+      sfx.beep();
+      break;
+
+    case 'tool_result':
+      addFeedEvent('TOOL', `${e.success ? '✓' : '✗'} ${e.name}`, e.success ? 'success' : 'alert');
+      if (!e.success) sfx.error();
+      break;
+
+    case 'reply':
+      addFeedEvent('VOYAGER', e.text, 'reply');
+      showVoiceBubble(e.text);
+      state.cmds++; $('m-cmds').textContent = state.cmds;
+      break;
+
+    case 'thinking':
+      addFeedEvent('VOYAGER', e.text, 'reply');
+      break;
+
+    case 'speak':
+      // The server-side `speak` tool also triggers system TTS; we just show the bubble.
+      showVoiceBubble(e.text);
+      break;
+
+    case 'weather':
+      renderWeather(e.data);
+      if (e.data.location) $('m-dest').textContent = e.data.location.split(',')[0];
+      break;
+
+    case 'air_quality':
+      renderAqi(e.data);
+      break;
+
+    case 'earthquakes':
+      renderQuakes(e.data);
+      if (e.data.earthquakes?.length) plotQuakesOnGlobe(e.data.earthquakes);
+      break;
+
+    case 'alert':
+      state.alerts++; $('m-alerts').textContent = state.alerts;
+      showToast(e.severity, e.message);
+      sfx.alert();
+      break;
+
+    case 'ipc_signal':
+      state.signals++; $('m-signals').textContent = state.signals;
+      addFeedEvent('IPC', `→ Re-Router activated via ${e.path.split('/').pop()}`, 'ipc');
+      $('agent-rerouter').className = 'agent alert';
+      $('state-rerouter').textContent = 'activated';
+      sfx.alert();
+      break;
+
+    case 'tokens': {
+      const tot = (e.usage.input_tokens || 0) + (e.usage.output_tokens || 0);
+      state.tokens += tot;
+      state.cost += ((e.usage.input_tokens || 0) * 15 + (e.usage.output_tokens || 0) * 75) / 1_000_000;
+      $('m-tokens').textContent = fmt(state.tokens);
+      $('m-cost').textContent = '$' + state.cost.toFixed(4);
+      break;
+    }
+
+    case 'cycle_end':
+      $('m-duration').textContent = (e.durationMs / 1000).toFixed(1) + 's';
+      sfx.success();
+      break;
+
+    case 'lock_on':
+      lockOnDestination(e.coords, e.label);
+      break;
+
+    case 'sound':
+      if (sfx[e.cue]) sfx[e.cue]();
+      break;
+
+    case 'state':
+      if (e.state.destination) $('m-dest').textContent = e.state.destination.split(',')[0];
+      break;
+
+    case 'changes':
+      (e.deltas || []).forEach(d => addFeedEvent('MEMORY', `Δ ${d.detail}`, 'info'));
+      break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDERERS
+// ═══════════════════════════════════════════════════════════════════
+function addFeedEvent(tag, msg, lvl) {
+  const list = $('feed-items');
+  if (list.querySelector('.empty')) list.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'event ' + lvl;
+  const t = new Date().toLocaleTimeString();
+  div.innerHTML = `<span class="event-time">${t}</span><span class="event-tag">[${tag}]</span> ${escapeHtml(msg)}`;
+  list.insertBefore(div, list.firstChild);
+  while (list.children.length > 60) list.removeChild(list.lastChild);
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderWeather(d) {
+  const html = (d.forecast || []).slice(0, 6).map((day, i) => `
+    <div class="day-pill ${day.isAlertDay ? 'alert' : ''}">
+      <div class="label">Day ${i+1}</div>
+      <div class="temp">${day.maxTempC ?? '?'}°</div>
+      <div class="desc">${(day.description || '').slice(0,16)}</div>
+      <div class="rain ${day.maxChanceOfRain > 65 ? 'high' : ''}">${day.maxChanceOfRain ?? 0}%</div>
+    </div>`).join('');
+  $('forecast').innerHTML = `<div class="day-strip">${html}</div>
+    <div style="text-align:center;color:var(--text-dim);font-size:9px;margin-top:7px;letter-spacing:0.1em;">${d.location} · ${d.source || ''}</div>`;
+}
+
+function renderAqi(d) {
+  const cls = d.usAqi <= 50 ? 'good' : d.usAqi <= 100 ? 'mod' : 'bad';
+  $('aqi').innerHTML = `
+    <div class="aqi-display">
+      <div class="aqi-num ${cls}">${d.usAqi ?? '—'}</div>
+      <div class="aqi-info">
+        <div class="cat">${d.category || '—'}</div>
+        <div class="rec">${d.recommendation || ''}</div>
+      </div>
+    </div>
+    <div class="kv"><span class="k">PM2.5</span><span class="v">${d.pollutants?.pm25?.toFixed(1) || '—'}</span></div>
+    <div class="kv"><span class="k">PM10</span><span class="v">${d.pollutants?.pm10?.toFixed(1) || '—'}</span></div>
+    <div class="kv"><span class="k">O₃</span><span class="v">${d.pollutants?.ozone?.toFixed(1) || '—'}</span></div>`;
+}
+
+function renderQuakes(d) {
+  if (!d.totalNearby) {
+    $('seismic').innerHTML = `<div style="color:var(--success);text-align:center;font-size:10px;padding:6px 0;">✓ No activity within ${d.radiusKm}km</div>`;
+    return;
+  }
+  const list = (d.earthquakes || []).slice(0, 4).map(q => `
+    <div class="quake-row">
+      <div class="quake-mag ${q.magnitude >= 5 ? 'major' : 'minor'}">M${q.magnitude.toFixed(1)}</div>
+      <div class="quake-place">${q.place}</div>
+      <div class="quake-dist">${q.distanceKm}km</div>
+    </div>`).join('');
+  $('seismic').innerHTML = list +
+    `<div style="text-align:center;color:var(--text-dim);font-size:9px;margin-top:5px;">${d.totalNearby} events · USGS</div>`;
+}
+
+function showToast(severity, message) {
+  const stack = $('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast ' + (severity === 'medium' ? 'medium' : '');
+  t.textContent = '⚠  ' + message;
+  stack.appendChild(t);
+  setTimeout(() => t.remove(), 12000);
+  while (stack.children.length > 3) stack.removeChild(stack.firstChild);
+}
+
+let voiceTimer = null;
+function showVoiceBubble(text) {
+  $('voice-text').textContent = text.length > 220 ? text.slice(0, 217) + '…' : text;
+  $('voice').classList.add('show');
+  clearTimeout(voiceTimer);
+  voiceTimer = setTimeout(() => $('voice').classList.remove('show'), Math.min(12000, 3000 + text.length * 40));
+}
+
+// Lock the globe onto a destination — cinematic camera move + pin
+function lockOnDestination(coords, label) {
+  if (!coords || coords.lat == null || coords.lon == null) return;
+  globe.controls().autoRotate = false;
+  globe.pointOfView({ lat: coords.lat, lng: coords.lon, altitude: 1.8 }, 1600);
+  globe.pointsData([{ lat: coords.lat, lng: coords.lon, label: label || '' }]);
+  globe.labelsData([{ lat: coords.lat, lng: coords.lon, label: label || '' }]);
+  setTimeout(() => { globe.controls().autoRotate = true; globe.controls().autoRotateSpeed = 0.2; }, 8000);
+}
+
+// Plot earthquakes as pulsing rings at their actual epicenters
+function plotQuakesOnGlobe(quakes) {
+  const rings = quakes.slice(0, 6)
+    .filter(q => q.lat != null && q.lon != null)
+    .map(q => ({
+      lat: q.lat, lng: q.lon,
+      maxR: 3 + q.magnitude,
+      propagationSpeed: 3,
+      repeatPeriod: Math.max(700, 1400 - q.magnitude * 100),
+    }));
+  globe.ringsData(rings);
+}
+
+// Resume audio on first interaction (browser autoplay policy)
+document.addEventListener('click', ensureAudio, { once: true });
+document.addEventListener('keydown', ensureAudio, { once: true });
+</script>
+</body>
+</html>
