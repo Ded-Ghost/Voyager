@@ -613,8 +613,17 @@ async function handleCommand(text, source = 'shell') {
     dash.cycleEnd(duration);
 
   } catch (err) {
-    display.log('VOYAGER', chalk.red(`Error: ${err.message}`), 'alert');
-    dash.log('VOYAGER', `Error: ${err.message}`, 'alert');
+    const msg = err.message || 'Unknown error';
+    // Provide clear actionable error messages
+    if (msg.includes('GEMINI_API_KEY not set') || msg.includes('invalid_api_key') || msg.includes('401')) {
+      const helpMsg = 'API key error. Get a FREE Gemini key at https://aistudio.google.com/apikey → paste it as GEMINI_API_KEY in your .env file → restart.';
+      display.log('VOYAGER', chalk.red(helpMsg), 'alert');
+      dash.log('VOYAGER', helpMsg, 'alert');
+      dash.reply(helpMsg);
+    } else {
+      display.log('VOYAGER', chalk.red(`Error: ${msg}`), 'alert');
+      dash.log('VOYAGER', `Error: ${msg}`, 'alert');
+    }
   } finally {
     isProcessing = false;
     dash.agent('Orchestrator', 'idle');
