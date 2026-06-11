@@ -387,10 +387,11 @@ async function executeTool(name, input) {
     }
 
     case 'speak': {
+      // Broadcast to dashboard — browser Web Speech API does the actual speaking
+      // (much better neural voices than system SAPI on Windows)
       dash.speak(input.text);
-      const result = await sys.speak(input.text);
-      display.log('VOICE', result.muted ? '(muted)' : `"${input.text.slice(0, 80)}"`, 'info');
-      return result;
+      display.log('VOICE', `"${input.text.slice(0, 80)}"`, 'info');
+      return { ok: true, spoken: input.text };
     }
 
     case 'set_voice': {

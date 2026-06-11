@@ -8,7 +8,9 @@ const platform = os.platform();
 const escape   = s => String(s).replace(/'/g, "'\\''").replace(/"/g, '\\"');
 
 // ─── TTS ────────────────────────────────────────────────────────────────────
-let ttsEnabled = process.env.TTS_ENABLED !== 'false';
+// Defaults OFF — browser handles voice via Web Speech API (much better voices).
+// Only turns on if TTS_ENABLED=true is explicitly set (for headless mode).
+let ttsEnabled = process.env.TTS_ENABLED === 'true';
 
 function setTtsEnabled(on) { ttsEnabled = !!on; return ttsEnabled; }
 function isTtsEnabled() { return ttsEnabled; }

@@ -50,11 +50,6 @@ if (!command || command === 'boot' || command === 'start') {
   display.log('SYSTEM', chalk.gray(`Try: "monitor Tokyo next week"   or   /help for built-ins`), 'info');
 
   shell.start();
-
-  // 5. Spoken boot greeting (if TTS enabled)
-  if (sys.isTtsEnabled()) {
-    setTimeout(() => sys.speak('Voyager online. Standing by.').catch(() => {}), 800);
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

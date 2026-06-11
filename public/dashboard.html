@@ -300,8 +300,27 @@
 </div>
 
 <!-- SCRIPTS -->
-<script src="https://unpkg.com/three@0.150.0/build/three.min.js"></script>
-<script src="https://unpkg.com/globe.gl"></script>
+<!-- BULLETPROOF EARLY FAILSAFE: runs immediately, before any CDN loads -->
+<script>
+(function() {
+  // Force-dismiss the boot overlay after 2 seconds NO MATTER WHAT.
+  // This runs before any other script, before CDN libraries, before WebSocket.
+  setTimeout(function() {
+    var boot = document.getElementById('boot');
+    if (boot) boot.classList.add('gone');
+  }, 2000);
+  // Catch any uncaught errors and show them visibly so we know what's failing
+  window.addEventListener('error', function(e) {
+    console.error('[VOYAGER] error:', e.message, e.filename, e.lineno);
+    var boot = document.getElementById('boot');
+    if (boot) boot.classList.add('gone');
+  });
+})();
+</script>
+
+<!-- CDN libraries with jsdelivr fallback if unpkg is blocked -->
+<script src="https://unpkg.com/three@0.150.0/build/three.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/three@0.150.0/build/three.min.js'"></script>
+<script src="https://unpkg.com/globe.gl" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/globe.gl'"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════════
 // STATE
@@ -357,44 +376,114 @@ const sfx = {
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// GLOBE
+// VOICE — Browser Web Speech API (much better than system TTS)
+// Picks neural voices: Microsoft Aria/Jenny (Windows 10/11), Samantha (Mac), Google voices
 // ═══════════════════════════════════════════════════════════════════
-const globe = Globe()(document.getElementById('globe-container'))
-  .backgroundColor('rgba(0,0,0,0)')
-  .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
-  .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
-  .showAtmosphere(true)
-  .atmosphereColor('#22d3ee')
-  .atmosphereAltitude(0.22)
-  .pointsData([])
-  .pointAltitude(0.04)
-  .pointColor(() => '#22d3ee')
-  .pointRadius(0.6)
-  .pointsMerge(false)
-  .ringsData([])
-  .ringColor(() => t => `rgba(248,113,113,${1-t})`)
-  .ringMaxRadius(8)
-  .ringPropagationSpeed(4)
-  .ringRepeatPeriod(900)
-  .labelsData([])
-  .labelText('label')
-  .labelColor(() => '#22d3ee')
-  .labelDotRadius(0.4)
-  .labelSize(0.9)
-  .labelResolution(2)
-  .labelAltitude(0.02)
-  .labelsTransitionDuration(800)
-  .onPolygonClick(handleCountryClick);
+let selectedVoice = null;
+let voicesReady = false;
+let voiceMuted = false;
 
-setTimeout(() => {
-  globe.controls().autoRotate = true;
-  globe.controls().autoRotateSpeed = 0.45;
-  globe.controls().enableZoom = true;
-  resizeGlobe();
-}, 50);
+function pickBestVoice() {
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return null;
 
-window.addEventListener('resize', resizeGlobe);
+  // Priority order — neural and modern voices first, then good legacy ones
+  const preferences = [
+    'Microsoft Aria Online (Natural)',
+    'Microsoft Jenny Online (Natural)',
+    'Microsoft Guy Online (Natural)',
+    'Microsoft Aria',
+    'Microsoft Jenny',
+    'Google UK English Female',
+    'Google US English',
+    'Samantha',           // macOS
+    'Karen',              // macOS Australian
+    'Daniel',             // macOS British
+    'Microsoft Zira',
+    'Microsoft David',
+  ];
+
+  for (const name of preferences) {
+    const v = voices.find(v => v.name === name || v.name.includes(name));
+    if (v) return v;
+  }
+  // Any english voice
+  return voices.find(v => v.lang.startsWith('en')) || voices[0];
+}
+
+function initVoices() {
+  selectedVoice = pickBestVoice();
+  voicesReady = true;
+  if (selectedVoice) console.log('[VOYAGER] Voice:', selectedVoice.name);
+}
+if ('speechSynthesis' in window) {
+  // Voices load asynchronously on some browsers
+  if (speechSynthesis.getVoices().length) initVoices();
+  speechSynthesis.addEventListener('voiceschanged', initVoices);
+}
+
+function browserSpeak(text) {
+  if (voiceMuted || !('speechSynthesis' in window) || !text) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text.slice(0, 400));
+  if (selectedVoice) u.voice = selectedVoice;
+  u.rate   = 1.02;
+  u.pitch  = 1.0;
+  u.volume = 0.95;
+  speechSynthesis.speak(u);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GLOBE — wrapped in try/catch so CDN failures don't break the dashboard
+// ═══════════════════════════════════════════════════════════════════
+let globe = null;
+try {
+  if (typeof Globe !== 'function') throw new Error('Globe.gl library failed to load from CDN');
+  globe = Globe()(document.getElementById('globe-container'))
+    .backgroundColor('rgba(0,0,0,0)')
+    .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg')
+    .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+    .showAtmosphere(true)
+    .atmosphereColor('#22d3ee')
+    .atmosphereAltitude(0.22)
+    .pointsData([])
+    .pointAltitude(0.04)
+    .pointColor(() => '#22d3ee')
+    .pointRadius(0.6)
+    .pointsMerge(false)
+    .ringsData([])
+    .ringColor(() => t => `rgba(248,113,113,${1-t})`)
+    .ringMaxRadius(8)
+    .ringPropagationSpeed(4)
+    .ringRepeatPeriod(900)
+    .labelsData([])
+    .labelText('label')
+    .labelColor(() => '#22d3ee')
+    .labelDotRadius(0.4)
+    .labelSize(0.9)
+    .labelResolution(2)
+    .labelAltitude(0.02)
+    .labelsTransitionDuration(800)
+    .onPolygonClick(handleCountryClick);
+
+  setTimeout(() => {
+    if (!globe) return;
+    globe.controls().autoRotate = true;
+    globe.controls().autoRotateSpeed = 0.45;
+    globe.controls().enableZoom = true;
+    resizeGlobe();
+  }, 50);
+
+  window.addEventListener('resize', resizeGlobe);
+} catch (err) {
+  console.error('[VOYAGER] Globe init failed:', err.message);
+  document.getElementById('globe-container').innerHTML =
+    '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#64748b;text-align:center;font-size:11px;">' +
+    'Globe library blocked.<br>Dashboard works without it.</div>';
+}
+
 function resizeGlobe() {
+  if (!globe) return;
   globe.width(window.innerWidth);
   globe.height(window.innerHeight);
 }
@@ -403,6 +492,7 @@ function resizeGlobe() {
 fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
   .then(r => r.json())
   .then(geo => {
+    if (!globe) return;
     globe
       .polygonsData(geo.features)
       .polygonCapColor(() => 'rgba(34,211,238,0.06)')
@@ -411,7 +501,7 @@ fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.g
       .polygonAltitude(0.005)
       .polygonsTransitionDuration(300);
   })
-  .catch(() => console.warn('Country polygons unavailable — globe runs without clickable countries.'));
+  .catch(() => console.warn('Country polygons unavailable.'));
 
 function handleCountryClick(feature) {
   if (!feature || !feature.properties) return;
@@ -425,11 +515,27 @@ function handleCountryClick(feature) {
 // WEBSOCKET
 // ═══════════════════════════════════════════════════════════════════
 let ws = null;
+let bootHidden = false;
+function hideBoot() {
+  if (bootHidden) return;
+  bootHidden = true;
+  $('boot').classList.add('gone');
+  sfx.boot();
+}
+// Safety net: hide boot overlay after 3 seconds no matter what
+setTimeout(hideBoot, 3000);
+
 function connect() {
   ws = new WebSocket(`ws://${location.host}`);
-  ws.onopen  = () => { $('conn-pill').classList.add('on'); $('conn-text').textContent = 'Linked'; };
+  ws.onopen  = () => {
+    console.log('[VOYAGER] WebSocket connected');
+    $('conn-pill').classList.add('on'); $('conn-text').textContent = 'Linked';
+    hideBoot();
+  };
+  ws.onerror = (e) => { console.error('[VOYAGER] WS error', e); hideBoot(); };
   ws.onclose = () => { $('conn-pill').classList.remove('on'); $('conn-text').textContent = 'Reconnecting'; setTimeout(connect, 2000); };
   ws.onmessage = (m) => {
+    hideBoot(); // any message means we're connected
     const e = JSON.parse(m.data);
     if (e.type === 'replay') e.events.forEach(handle);
     else handle(e);
@@ -448,7 +554,12 @@ function sendCommand(text) {
 $('cmd-send').onclick = () => sendCommand($('cmd-input').value.trim());
 $('cmd-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendCommand($('cmd-input').value.trim()); });
 $('sound-btn').onclick = () => { soundOn = !soundOn; $('sound-btn').classList.toggle('off', !soundOn); $('sound-btn').textContent = soundOn ? '🔊' : '🔇'; };
-$('mute-btn').onclick  = () => { muted = !muted; $('mute-btn').classList.toggle('off', muted); sendCommand(muted ? 'go quiet' : 'speak again'); };
+$('mute-btn').onclick  = () => {
+  voiceMuted = !voiceMuted;
+  $('mute-btn').classList.toggle('off', voiceMuted);
+  if (voiceMuted) speechSynthesis.cancel();
+  sendCommand(voiceMuted ? 'go quiet' : 'speak again');
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // EVENT HANDLER
@@ -458,8 +569,7 @@ function handle(e) {
 
   switch (e.type) {
     case 'welcome':
-      setTimeout(() => $('boot').classList.add('gone'), 200);
-      sfx.boot();
+      hideBoot();
       break;
 
     case 'agent_status': {
@@ -492,6 +602,7 @@ function handle(e) {
     case 'reply':
       addFeedEvent('VOYAGER', e.text, 'reply');
       showVoiceBubble(e.text);
+      browserSpeak(e.text);
       state.cmds++; $('m-cmds').textContent = state.cmds;
       break;
 
@@ -500,8 +611,8 @@ function handle(e) {
       break;
 
     case 'speak':
-      // The server-side `speak` tool also triggers system TTS; we just show the bubble.
       showVoiceBubble(e.text);
+      browserSpeak(e.text);
       break;
 
     case 'weather':
@@ -641,16 +752,17 @@ function showVoiceBubble(text) {
 
 // Lock the globe onto a destination — cinematic camera move + pin
 function lockOnDestination(coords, label) {
-  if (!coords || coords.lat == null || coords.lon == null) return;
+  if (!globe || !coords || coords.lat == null || coords.lon == null) return;
   globe.controls().autoRotate = false;
   globe.pointOfView({ lat: coords.lat, lng: coords.lon, altitude: 1.8 }, 1600);
   globe.pointsData([{ lat: coords.lat, lng: coords.lon, label: label || '' }]);
   globe.labelsData([{ lat: coords.lat, lng: coords.lon, label: label || '' }]);
-  setTimeout(() => { globe.controls().autoRotate = true; globe.controls().autoRotateSpeed = 0.2; }, 8000);
+  setTimeout(() => { if (globe) { globe.controls().autoRotate = true; globe.controls().autoRotateSpeed = 0.2; } }, 8000);
 }
 
 // Plot earthquakes as pulsing rings at their actual epicenters
 function plotQuakesOnGlobe(quakes) {
+  if (!globe) return;
   const rings = quakes.slice(0, 6)
     .filter(q => q.lat != null && q.lon != null)
     .map(q => ({
