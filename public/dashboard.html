@@ -4,530 +4,625 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VOYAGER — India Travel Intelligence</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-  :root{
-    --bg:#02060e;
-    --panel:rgba(7,16,34,0.72);
-    --panel-line:rgba(34,211,238,0.20);
-    --primary:#22d3ee;
-    --primary-glow:rgba(34,211,238,0.5);
-    --accent:#a78bfa;
-    --warn:#fbbf24;
-    --danger:#f87171;
-    --success:#34d399;
-    --india:#ff7a3d;
-    --india-glow:rgba(255,122,61,0.4);
-    --text:#c8d6e5;
-    --text-dim:#5e6f80;
-    --text-bright:#eef6ff;
-    --display:'Orbitron','Segoe UI',sans-serif;
-    --body:'Rajdhani','Segoe UI',sans-serif;
-    --mono:'Share Tech Mono',ui-monospace,monospace;
-  }
-  html,body{height:100%;width:100%;background:var(--bg);color:var(--text);font-family:var(--body);font-size:14.5px;overflow:hidden;}
-
-  /* ── LAYERED BACKGROUND ─────────────────────────────── */
-  .bg-deep{position:fixed;inset:0;z-index:0;background:
-    radial-gradient(1100px 700px at 50% 42%,rgba(18,68,130,0.22) 0%,transparent 60%),
-    radial-gradient(900px 600px at 80% 90%,rgba(120,70,220,0.08) 0%,transparent 55%),
-    linear-gradient(180deg,#020610 0%,#030a16 55%,#02060e 100%);}
-  .bg-grid{position:fixed;inset:0;z-index:0;opacity:0.5;background-image:
-    linear-gradient(rgba(34,211,238,0.045) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(34,211,238,0.045) 1px,transparent 1px);
-    background-size:56px 56px;
-    mask-image:radial-gradient(ellipse at 50% 45%,black 0%,transparent 75%);
-    animation:griddrift 50s linear infinite;}
-  @keyframes griddrift{from{background-position:0 0;}to{background-position:56px 56px;}}
-  .bg-scan{position:fixed;inset:0;z-index:1;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(255,255,255,0.012) 0 1px,transparent 1px 3px);}
-  .bg-vignette{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.5) 100%);}
-  .scanline{position:fixed;left:0;right:0;height:140px;z-index:1;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(34,211,238,0.04),transparent);animation:scanmove 9s ease-in-out infinite;}
-  @keyframes scanmove{0%{top:-150px;}50%{top:100vh;}100%{top:-150px;}}
-
-  /* ── HUD CORNERS ────────────────────────────────────── */
-  .hud-frame{position:fixed;inset:14px;z-index:5;pointer-events:none;}
-  .corner{position:absolute;width:34px;height:34px;border:1.5px solid var(--primary);opacity:0.55;filter:drop-shadow(0 0 6px var(--primary-glow));}
-  .corner.tl{top:0;left:0;border-right:none;border-bottom:none;}
-  .corner.tr{top:0;right:0;border-left:none;border-bottom:none;}
-  .corner.bl{bottom:0;left:0;border-right:none;border-top:none;}
-  .corner.br{bottom:0;right:0;border-left:none;border-top:none;}
-
-  /* ── TOP BAR ────────────────────────────────────────── */
-  .topbar{position:fixed;top:16px;left:24px;right:24px;z-index:10;display:flex;justify-content:space-between;align-items:center;pointer-events:none;}
-  .brand{display:flex;align-items:center;gap:16px;pointer-events:auto;}
-  .brand .mark{width:44px;height:44px;border:2px solid var(--primary);position:relative;display:flex;align-items:center;justify-content:center;background:rgba(0,3,8,0.8);transform:rotate(45deg);animation:markpulse 3s ease-in-out infinite;}
-  .brand .mark::before,.brand .mark::after{content:'';position:absolute;background:var(--primary);transform:rotate(-45deg);}
-  .brand .mark::before{width:2px;height:18px;}
-  .brand .mark::after{width:18px;height:2px;}
-  @keyframes markpulse{0%,100%{box-shadow:0 0 0 0 var(--primary-glow);}50%{box-shadow:0 0 26px 5px var(--primary-glow);}}
-  .brand-text h1{font-family:var(--display);font-size:23px;font-weight:900;letter-spacing:0.42em;color:#fff;text-shadow:0 0 24px rgba(34,211,238,0.55);}
-  .brand-text .sub{font-size:11.5px;color:var(--text-dim);letter-spacing:0.22em;text-transform:uppercase;margin-top:3px;font-weight:600;}
-
-  .status-cluster{display:flex;gap:10px;pointer-events:auto;align-items:center;}
-  .pill{display:flex;align-items:center;gap:8px;padding:7px 15px;background:var(--panel);border:1px solid var(--panel-line);font-size:11px;letter-spacing:0.14em;color:var(--text);text-transform:uppercase;font-weight:700;backdrop-filter:blur(10px);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
-  .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim);}
-  .pill.on .dot{background:var(--success);box-shadow:0 0 10px var(--success);animation:pulse 2s infinite;}
-  .pill.alert .dot{background:var(--danger);box-shadow:0 0 12px var(--danger);}
-  .pill.active .dot{background:var(--primary);box-shadow:0 0 12px var(--primary);animation:pulse 1.5s infinite;}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
-  .icon-btn{background:var(--panel);border:1px solid var(--panel-line);color:var(--text);width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:all 0.2s;backdrop-filter:blur(10px);}
-  .icon-btn:hover{border-color:var(--primary);color:var(--primary);box-shadow:0 0 14px rgba(34,211,238,0.25);}
-  .icon-btn.off{opacity:0.45;}
-
-  /* ── SIDE PANELS ────────────────────────────────────── */
-  .panel-left{position:fixed;top:80px;left:24px;width:268px;bottom:24px;z-index:10;display:flex;flex-direction:column;gap:12px;pointer-events:auto;overflow-y:auto;scrollbar-width:none;}
-  .panel-left::-webkit-scrollbar{display:none;}
-  .panel-right{position:fixed;top:80px;right:24px;width:330px;bottom:24px;z-index:10;display:flex;flex-direction:column;gap:12px;overflow-y:auto;pointer-events:auto;scrollbar-width:none;}
-  .panel-right::-webkit-scrollbar{display:none;}
-
-  .panel{background:var(--panel);border:1px solid var(--panel-line);backdrop-filter:blur(14px);padding:15px;position:relative;transition:border-color 0.3s,box-shadow 0.3s;}
-  .panel:hover{border-color:rgba(34,211,238,0.40);box-shadow:0 0 24px rgba(34,211,238,0.07);}
-  .panel::before{content:'';position:absolute;top:-1px;left:-1px;width:12px;height:12px;border-top:1.5px solid var(--primary);border-left:1.5px solid var(--primary);}
-  .panel::after{content:'';position:absolute;bottom:-1px;right:-1px;width:12px;height:12px;border-bottom:1.5px solid var(--primary);border-right:1.5px solid var(--primary);}
-  .panel h2{font-family:var(--display);font-size:11px;font-weight:700;letter-spacing:0.26em;color:var(--primary);text-transform:uppercase;margin-bottom:11px;padding-bottom:8px;border-bottom:1px solid var(--panel-line);display:flex;align-items:center;gap:8px;position:relative;}
-  .panel h2::after{content:'';position:absolute;bottom:-1px;left:0;width:42px;height:1px;background:var(--primary);box-shadow:0 0 8px var(--primary);}
-  .panel h2 .marker{width:6px;height:6px;background:var(--primary);box-shadow:0 0 8px var(--primary);animation:pulse 2.5s infinite;}
-
-  /* ── AGENTS ─────────────────────────────────────────── */
-  .agent{display:flex;align-items:center;gap:11px;padding:9px 11px;background:rgba(0,0,0,0.35);border-left:3px solid transparent;margin-bottom:6px;transition:all 0.3s;}
-  .agent.idle{border-left-color:var(--text-dim);}
-  .agent.active{border-left-color:var(--primary);background:linear-gradient(90deg,rgba(34,211,238,0.12),rgba(34,211,238,0.02));box-shadow:inset 0 0 18px rgba(34,211,238,0.06);}
-  .agent.alert{border-left-color:var(--danger);background:linear-gradient(90deg,rgba(248,113,113,0.12),transparent);}
-  .agent-icon{width:22px;text-align:center;font-size:14px;}
-  .agent-name{flex:1;font-size:14.5px;font-weight:700;color:var(--text-bright);letter-spacing:0.02em;}
-  .agent-state{font-family:var(--mono);font-size:10px;letter-spacing:0.12em;color:var(--text-dim);text-transform:uppercase;}
-  .agent.active .agent-state{color:var(--primary);text-shadow:0 0 8px var(--primary-glow);}
-  .agent.alert .agent-state{color:var(--danger);}
-
-  /* ── QUICK INSPECT ──────────────────────────────────── */
-  .city-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
-  .city-chip{font-size:13px;font-weight:700;padding:6px 13px;border:1px solid var(--panel-line);color:var(--text);cursor:pointer;letter-spacing:0.07em;transition:all 0.2s;background:rgba(0,0,0,0.3);clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
-  .city-chip:hover{border-color:var(--primary);color:var(--primary);background:rgba(34,211,238,0.10);box-shadow:0 0 12px rgba(34,211,238,0.2);transform:translateY(-1px);}
-
-  /* ── METRICS ────────────────────────────────────────── */
-  .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px;}
-  .metric{background:rgba(0,0,0,0.35);border:1px solid rgba(34,211,238,0.10);padding:9px;position:relative;overflow:hidden;}
-  .metric::after{content:'';position:absolute;top:0;left:0;right:0;height:1.5px;background:linear-gradient(90deg,var(--primary),transparent);}
-  .metric-label{font-size:9.5px;color:var(--text-dim);letter-spacing:0.16em;text-transform:uppercase;margin-bottom:4px;font-weight:700;}
-  .metric-value{font-family:var(--display);font-size:21px;color:var(--primary);font-weight:700;text-shadow:0 0 12px rgba(34,211,238,0.45);}
-  .kv{display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;border-bottom:1px dashed rgba(34,211,238,0.10);}
-  .kv:last-child{border-bottom:none;}
-  .kv .k{color:var(--text-dim);font-weight:600;}
-
-  /* ── WEATHER / AQI / QUAKES ─────────────────────────── */
-  .wx-day{display:flex;align-items:center;gap:10px;padding:8px 9px;margin-bottom:5px;background:rgba(0,0,0,0.3);border:1px solid rgba(34,211,238,0.08);transition:border-color 0.2s;}
-  .wx-day:hover{border-color:rgba(34,211,238,0.3);}
-  .wx-date{font-family:var(--mono);font-size:11px;color:var(--text-dim);width:40px;}
-  .wx-icon{font-size:19px;width:26px;text-align:center;}
-  .wx-temps{font-size:14.5px;color:var(--text-bright);flex:1;font-weight:700;}
-  .wx-temps span{color:var(--text-dim);font-size:11.5px;font-weight:500;}
-  .wx-flag{font-size:10px;padding:2px 8px;border:1px solid currentColor;letter-spacing:0.07em;font-weight:700;}
-  .wx-flag.warn{color:var(--warn);}
-  .wx-flag.danger{color:var(--danger);animation:pulse 1.6s infinite;}
-  .wx-flag.ok{color:var(--success);}
-  .aqi-bar{height:6px;background:rgba(34,211,238,0.1);margin:8px 0;border-radius:3px;overflow:hidden;}
-  .aqi-fill{height:100%;transition:width 0.7s ease;border-radius:3px;box-shadow:0 0 10px currentColor;}
-  .quake-row{display:flex;gap:8px;padding:6px 0;border-bottom:1px dashed rgba(34,211,238,0.08);font-size:13px;align-items:center;}
-  .quake-row:last-child{border-bottom:none;}
-  .quake-mag{font-family:var(--mono);font-weight:700;width:38px;}
-  .quake-mag.significant{color:var(--danger);}
-  .quake-mag.minor{color:var(--warn);}
-
-  /* ═══ INDIA MAP — CENTER, BIG ═══ */
-  #india-map-container{position:fixed;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;overflow:hidden;padding-bottom:40px;}
-  #india-svg-wrap{position:relative;height:min(88vh,940px);aspect-ratio:500/510;filter:drop-shadow(0 0 40px rgba(20,90,200,0.25));animation:mapfloat 9s ease-in-out infinite;}
-  @keyframes mapfloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-9px);}}
-  #india-svg{width:100%;height:100%;overflow:visible;}
-  #india-outline{animation:outlineglow 5s ease-in-out infinite;}
-  @keyframes outlineglow{0%,100%{stroke:rgba(80,225,255,0.95);}50%{stroke:rgba(140,240,255,1);}}
-
-  .route{stroke:rgba(34,211,238,0.45);stroke-width:1;stroke-dasharray:4 7;animation:routeflow 2.6s linear infinite;}
-  @keyframes routeflow{to{stroke-dashoffset:-44;}}
-  .radar-spin{transform-origin:160px 190px;animation:radarspin 26s linear infinite;}
-  @keyframes radarspin{to{transform:rotate(360deg);}}
-
-  /* City pins — ripple rings + label pills */
-  .city-pin{position:absolute;transform:translate(-50%,-50%);cursor:pointer;z-index:5;}
-  .city-pin-dot{width:11px;height:11px;border-radius:50%;background:var(--primary);box-shadow:0 0 14px var(--primary),0 0 4px #fff;transition:all 0.25s;position:relative;}
-  .city-pin-dot::after{content:'';position:absolute;inset:-7px;border:1.5px solid rgba(34,211,238,0.55);border-radius:50%;animation:ripple 2.6s ease-out infinite;}
-  @keyframes ripple{0%{transform:scale(0.45);opacity:1;}100%{transform:scale(1.9);opacity:0;}}
-  .city-pin:hover .city-pin-dot{width:17px;height:17px;background:#fff;box-shadow:0 0 28px var(--primary),0 0 10px #fff;}
-  .city-pin.active .city-pin-dot{background:var(--india);box-shadow:0 0 28px var(--india),0 0 8px #fff;width:15px;height:15px;}
-  .city-pin.active .city-pin-dot::after{border-color:var(--india);animation-duration:1.4s;}
-  .city-pin-label{position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:700;color:var(--primary);letter-spacing:0.09em;white-space:nowrap;pointer-events:none;background:rgba(2,10,22,0.72);border:1px solid rgba(34,211,238,0.25);padding:2px 8px;backdrop-filter:blur(4px);text-shadow:0 0 10px rgba(34,211,238,0.7);}
-  .city-pin.active .city-pin-label{color:var(--india);border-color:rgba(255,122,61,0.45);text-shadow:0 0 12px var(--india-glow);}
-  .city-pin-label.left{left:auto;right:16px;}
-  .city-pin:hover .city-pin-label{border-color:var(--primary);box-shadow:0 0 14px rgba(34,211,238,0.25);}
-
-  #city-tooltip{position:fixed;z-index:30;background:var(--panel);border:1px solid var(--primary);padding:13px 17px;pointer-events:none;display:none;backdrop-filter:blur(14px);box-shadow:0 0 34px rgba(34,211,238,0.3);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
-  #city-tooltip h3{font-family:var(--display);color:var(--primary);font-size:15px;letter-spacing:0.12em;margin-bottom:4px;font-weight:700;}
-  #city-tooltip .ct-meta{font-family:var(--mono);color:var(--text-dim);font-size:11px;letter-spacing:0.08em;margin-bottom:5px;}
-  #city-tooltip .ct-action{color:var(--success);font-size:11.5px;letter-spacing:0.08em;font-weight:700;}
-
-  /* ── FEED ───────────────────────────────────────────── */
-  .feed-wrapper{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;width:700px;max-width:calc(100vw - 650px);min-width:420px;z-index:10;pointer-events:auto;}
-  .feed{background:var(--panel);border:1px solid var(--panel-line);backdrop-filter:blur(12px);max-height:172px;overflow-y:auto;padding:10px 15px;}
-  .feed::-webkit-scrollbar{width:4px;}
-  .feed::-webkit-scrollbar-thumb{background:rgba(34,211,238,0.3);}
-  .feed-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid var(--panel-line);}
-  .feed-header span{font-family:var(--display);font-size:10px;color:var(--primary);letter-spacing:0.24em;text-transform:uppercase;font-weight:700;}
-  .event{font-size:13px;padding:3px 0;border-left:3px solid transparent;padding-left:9px;margin-bottom:2px;animation:eventin 0.3s ease;line-height:1.45;}
-  @keyframes eventin{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:translateX(0);}}
-  .event.tool{border-left-color:var(--accent);}
-  .event.success{border-left-color:var(--success);}
-  .event.alert{border-left-color:var(--danger);background:rgba(248,113,113,0.06);}
-  .event.ipc{border-left-color:var(--india);background:rgba(255,122,61,0.06);}
-  .event.reply{border-left-color:var(--primary);background:rgba(34,211,238,0.05);color:var(--text-bright);}
-  .event-tag{color:var(--primary);font-weight:700;}
-  .event.tool .event-tag{color:var(--accent);}
-  .event.alert .event-tag{color:var(--danger);}
-  .event-time{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-right:7px;}
-
-  /* ── COMMAND BAR ────────────────────────────────────── */
-  .commandbar{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);width:700px;max-width:calc(100vw - 650px);min-width:420px;z-index:11;display:flex;gap:9px;align-items:stretch;pointer-events:auto;}
-  .commandbar .prompt{display:flex;align-items:center;justify-content:center;width:42px;background:var(--panel);border:2px solid var(--primary);color:var(--primary);font-size:17px;font-weight:700;animation:pulse 3s infinite;}
-  .commandbar input{flex:1;background:var(--panel);border:1px solid var(--panel-line);color:var(--text-bright);padding:13px 17px;font-family:var(--body);font-size:15.5px;font-weight:600;outline:none;transition:all 0.2s;backdrop-filter:blur(10px);}
-  .commandbar input:focus{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary),0 0 26px rgba(34,211,238,0.3);}
-  .commandbar input::placeholder{color:var(--text-dim);font-style:italic;font-weight:500;}
-  .commandbar button{font-family:var(--display);background:linear-gradient(135deg,rgba(34,211,238,0.12),rgba(34,211,238,0.02));border:2px solid var(--primary);color:var(--primary);padding:0 26px;font-size:12px;font-weight:700;letter-spacing:0.22em;cursor:pointer;text-transform:uppercase;transition:all 0.2s;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
-  .commandbar button:hover{background:var(--primary);color:var(--bg);box-shadow:0 0 26px var(--primary-glow);}
-
-  /* ── TOAST / VOICE ──────────────────────────────────── */
-  .toast-stack{position:fixed;top:78px;left:50%;transform:translateX(-50%);z-index:20;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
-  .toast{background:rgba(248,113,113,0.15);border:1px solid var(--danger);color:var(--danger);padding:12px 19px;font-size:14px;backdrop-filter:blur(10px);animation:toastin 0.4s ease;font-weight:700;}
-  .toast.medium{border-color:var(--warn);color:var(--warn);background:rgba(251,191,36,0.12);}
-  @keyframes toastin{from{opacity:0;transform:translateY(-12px);}to{opacity:1;transform:translateY(0);}}
-
-  .voice-bubble{position:fixed;bottom:240px;left:24px;max-width:268px;z-index:12;pointer-events:none;opacity:0;transition:opacity 0.4s;}
-  .voice-bubble.show{opacity:1;}
-  .voice-bubble-inner{background:var(--panel);border:1px solid var(--primary);padding:14px 16px;backdrop-filter:blur(10px);font-size:13.5px;color:var(--text-bright);line-height:1.55;box-shadow:0 0 30px rgba(34,211,238,0.18);position:relative;}
-  .voice-bubble-inner::before{content:'◉ VOYAGER SPEAKING';font-family:var(--display);display:block;font-size:9px;letter-spacing:0.2em;color:var(--primary);margin-bottom:6px;animation:pulse 1.2s infinite;}
-
-  /* ── BOOT ───────────────────────────────────────────── */
-  .boot-overlay{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;transition:opacity 0.8s;}
-  .boot-overlay.gone{opacity:0;pointer-events:none;}
-  .boot-text{font-family:var(--display);font-size:17px;letter-spacing:0.6em;color:var(--primary);text-transform:uppercase;font-weight:900;text-shadow:0 0 26px var(--primary-glow);animation:pulse 1.4s infinite;}
-  .boot-bar{width:340px;height:3px;background:rgba(34,211,238,0.15);position:relative;overflow:hidden;}
-  .boot-fill{position:absolute;left:0;top:0;height:100%;width:0;background:var(--primary);box-shadow:0 0 16px var(--primary);animation:bootfill 1.8s ease-out forwards;}
-  @keyframes bootfill{to{width:100%;}}
-
-  .empty{text-align:center;color:var(--text-dim);font-size:12.5px;font-style:italic;padding:10px 0;}
-
-  @media(max-width:1280px){
-    .feed-wrapper,.commandbar{max-width:calc(100vw - 48px);min-width:0;}
-    #india-svg-wrap{height:min(70vh,720px);}
-  }
-  @media(max-width:1000px){
-    .panel-left,.panel-right{position:static;width:auto;}
-  }
+:root{
+  --bg:#050d1a; --panel:#07121f;
+  --primary:#00ffc8; --secondary:#4a9eff; --tertiary:#a078ff;
+  --warn:#ffb800; --danger:#ff4444;
+  --txt:#c8dff5; --muted:#7a9bb5; --vmuted:#4a7a6a;
+  --line:rgba(0,255,200,0.1);
+  --mapline:rgba(80,170,255,0.85);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--txt);
+  font-family:'Courier New',Courier,monospace;
+  overflow:hidden; font-size:13px;
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:200; pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,20,15,0.18) 3px,rgba(0,0,0,0) 4px);
+  mix-blend-mode:overlay;
+}
+.sec-head{text-transform:uppercase;letter-spacing:2px;font-size:11px;color:var(--primary);opacity:0.6;margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.sec-head::before{content:"\25A0";font-size:8px}
+#app{
+  display:grid;height:100vh;
+  grid-template-columns:230px 1fr 260px;
+  grid-template-rows:48px 1fr 120px;
+  grid-template-areas:"header header header" "left center right" "footL footL footR";
+  gap:1px;background:rgba(0,255,200,0.06);
+}
+#header{grid-area:header;background:var(--panel);display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand h1{font-size:18px;letter-spacing:7px;color:var(--primary);font-weight:bold}
+.brand .sub{font-size:9px;letter-spacing:2px;color:var(--muted);margin-top:2px}
+.hstatus{display:flex;align-items:center;gap:18px}
+.hstat{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.dot{width:7px;height:7px;border-radius:50%}
+.dot.green{background:var(--primary);box-shadow:0 0 8px var(--primary);animation:pulse 1.8s infinite}
+.dot.blue{background:var(--secondary);box-shadow:0 0 8px var(--secondary)}
+.dot.warn{background:var(--warn);box-shadow:0 0 8px var(--warn)}
+.dot.red{background:var(--danger);box-shadow:0 0 8px var(--danger)}
+.hbtn{background:transparent;border:1px solid var(--line);color:var(--muted);font-family:inherit;cursor:pointer;padding:5px 8px;font-size:12px;transition:.15s}
+.hbtn:hover{border-color:var(--primary);color:var(--primary)}
+.hbtn.stop{color:var(--danger);border-color:rgba(255,68,68,0.3)}
+.col{padding:12px;overflow-y:auto;background:var(--panel)}
+.col::-webkit-scrollbar{width:4px} .col::-webkit-scrollbar-thumb{background:rgba(0,255,200,0.15)}
+#left{grid-area:left} #right{grid-area:right}
+.block{margin-bottom:14px}
+/* agents */
+.agent{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.03)}
+.agent:last-child{border-bottom:none}
+.agent .nm{font-size:11px;letter-spacing:1px;color:var(--txt)}
+.agent .rl{font-size:9px;color:var(--vmuted);letter-spacing:1px;margin-top:2px}
+.badge{font-size:8px;letter-spacing:1.5px;padding:3px 7px;border:1px solid;text-transform:uppercase;transition:.3s}
+.badge.idle{color:var(--primary);border-color:rgba(0,255,200,0.3)}
+.badge.active{color:#fff;border-color:var(--primary);background:rgba(0,255,200,0.2);animation:pulse .6s infinite}
+.badge.standby{color:var(--warn);border-color:rgba(255,184,0,0.3)}
+.badge.partner{color:var(--tertiary);border-color:rgba(160,120,255,0.3)}
+.badge.error{color:var(--danger);border-color:rgba(255,68,68,0.3)}
+.qi-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.qi{background:transparent;border:1px solid var(--line);color:var(--muted);font-family:inherit;cursor:pointer;padding:7px 4px;font-size:10px;letter-spacing:1px;text-align:center;transition:.12s}
+.qi:hover{border-color:var(--secondary);color:var(--secondary)}
+.qi.active{border-color:var(--primary);color:var(--primary);background:rgba(0,255,200,0.07)}
+.tel-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tel{border:1px solid var(--line);padding:9px 7px;text-align:center}
+.tel .v{font-size:24px;color:var(--primary);line-height:1}
+.tel .k{font-size:9px;letter-spacing:1.5px;color:var(--vmuted);margin-top:5px;text-transform:uppercase}
+.hist-item{font-size:10px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03);color:var(--muted)}
+.hist-item .t{color:var(--vmuted);font-size:9px}
+.empty{font-size:10px;color:var(--vmuted);letter-spacing:1px;padding:4px 0}
+/* center map */
+#center{grid-area:center;position:relative;overflow:hidden;background:radial-gradient(ellipse 60% 60% at 48% 42%,rgba(20,60,90,0.35),rgba(5,13,26,0) 70%),var(--panel)}
+#map-svg{width:100%;height:100%;display:block}
+#city-overlay{position:absolute;top:18px;left:50%;transform:translateX(-50%);border:1px solid var(--primary);background:rgba(5,13,26,0.92);padding:10px 22px;letter-spacing:3px;font-size:14px;color:var(--primary);text-transform:uppercase;opacity:0;transition:opacity .4s;pointer-events:none;box-shadow:0 0 22px rgba(0,255,200,0.25)}
+#city-overlay.show{opacity:1}
+.map-corner{position:absolute;font-size:9px;letter-spacing:2px;color:var(--vmuted);text-transform:uppercase}
+.mc-tl{top:10px;left:12px} .mc-tr{top:10px;right:12px;text-align:right}
+.mc-bl{bottom:10px;left:12px} .mc-br{bottom:10px;right:12px;text-align:right}
+.grid-l{stroke:rgba(0,255,200,0.05);stroke-width:0.5}
+.route{fill:none;stroke:rgba(80,170,255,0.28);stroke-width:0.8}
+.city-node{cursor:pointer}
+.city-node .star line{stroke:#bfe9ff;stroke-width:0.9}
+.city-node .star circle{fill:#dff3ff}
+.city-node .lbl{fill:#7fb8e8;font-size:9.5px;letter-spacing:1px;font-family:'Courier New',monospace;text-transform:uppercase}
+.city-node:hover .lbl{fill:var(--primary)}
+.city-node.active .star line{stroke:var(--primary)}
+.city-node.active .star circle{fill:var(--primary)}
+.city-node.active .lbl{fill:var(--primary)}
+.conn{fill:none;stroke:var(--primary);stroke-width:1;stroke-dasharray:4 4;opacity:0.7;animation:ants 1s linear infinite}
+@keyframes ants{to{stroke-dashoffset:-16}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+/* right panel */
+.fc{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.fc .temp{font-size:32px;color:var(--primary);line-height:1}
+.fc .icon{font-size:28px}
+.fc-detail{font-size:10px;color:var(--muted);line-height:1.7}
+.fc-detail span{color:var(--txt)}
+.aqi-row{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+.aqi-row .n{font-size:28px;color:var(--primary)} .aqi-row .l{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.aqi-bar{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;height:6px}
+.aqi-bar div{background:rgba(255,255,255,0.07)}
+.aqi-bar .on0{background:#00ffc8}.aqi-bar .on1{background:#9bdc3c}.aqi-bar .on2{background:#ffb800}.aqi-bar .on3{background:#ff8c00}.aqi-bar .on4{background:#ff4444}.aqi-bar .on5{background:#c40000}
+.aqi-stops{display:grid;grid-template-columns:repeat(6,1fr);font-size:7.5px;color:var(--vmuted);margin-top:3px;letter-spacing:0.5px;text-transform:uppercase}
+.seis{display:flex;align-items:center;gap:8px;font-size:9px;color:var(--muted)}
+/* disruption */
+.disr{border:1px solid;padding:8px 10px;margin-bottom:6px;font-size:10px;letter-spacing:.5px}
+.disr.ok{border-color:rgba(0,255,200,0.2);color:var(--primary)}
+.disr.warn{border-color:rgba(255,184,0,0.3);color:var(--warn)}
+.disr.crit{border-color:rgba(255,68,68,0.3);color:var(--danger)}
+.disr .tag{font-size:8.5px;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;opacity:.7}
+/* routes */
+.rt{border:1px solid var(--line);padding:7px 9px;margin-bottom:5px}
+.rt-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.rt-type{font-size:8px;letter-spacing:2px;text-transform:uppercase;padding:1px 5px;border:1px solid}
+.rt-type.flight{color:var(--secondary);border-color:rgba(74,158,255,0.3)}
+.rt-type.train{color:var(--warn);border-color:rgba(255,184,0,0.3)}
+.rt-type.drive{color:var(--muted);border-color:rgba(122,155,181,0.3)}
+.rt-name{font-size:11px;color:var(--txt);letter-spacing:.5px}
+.rt-info{font-size:10px;color:var(--vmuted);margin-top:3px;line-height:1.6}
+.rt-info span{color:var(--muted)}
+.evt{font-size:10px;color:var(--muted);padding:3px 0 3px 10px;position:relative;line-height:1.5}
+.evt::before{content:"\203A";position:absolute;left:0;color:var(--secondary)}
+#notepad{min-height:44px;border:1px solid var(--line);padding:8px;font-size:11px;color:var(--txt);outline:none;line-height:1.5}
+#notepad:empty::before{content:"Log notes\2026";color:var(--vmuted)}
+#notepad:focus{border-color:rgba(0,255,200,0.3)}
+/* footer */
+#footL{grid-area:footL;background:var(--panel);padding:10px 13px;overflow-y:auto;border-top:1px solid var(--line)}
+#footL::-webkit-scrollbar{width:4px}#footL::-webkit-scrollbar-thumb{background:rgba(0,255,200,0.15)}
+.stream-item{font-size:10px;color:var(--muted);padding:2px 0;letter-spacing:.5px}
+.stream-item .t{color:var(--vmuted);margin-right:7px;font-size:9px}
+.stream-item.flash{animation:flash 1s ease-out}
+.stream-item .ag{color:var(--secondary);margin-right:4px}
+@keyframes flash{0%{background:rgba(0,255,200,0.18)}100%{background:transparent}}
+#footR{grid-area:footR;background:var(--panel);padding:10px 13px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px;justify-content:center}
+.cmd-row{display:flex;align-items:stretch;gap:7px}
+.cmd-arrow{color:var(--primary);font-size:15px;display:flex;align-items:center}
+#cmd-input{flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:13px;padding:7px 10px;outline:none;letter-spacing:1px}
+#cmd-input:focus{border-color:rgba(0,255,200,0.35)}
+.cbtn{font-family:inherit;cursor:pointer;padding:8px 14px;font-size:10px;letter-spacing:2px;text-transform:uppercase;border:1px solid;background:transparent;transition:.15s}
+.cbtn.stop{color:var(--danger);border-color:rgba(255,68,68,0.4)}.cbtn.stop:hover{background:rgba(255,68,68,0.12)}
+.cbtn.exec{color:var(--primary);border-color:rgba(0,255,200,0.4)}.cbtn.exec:hover{background:rgba(0,255,200,0.12)}
+.hint{font-size:8.5px;color:var(--vmuted);letter-spacing:1.5px;text-transform:uppercase}
+@media(max-width:1100px){#app{grid-template-columns:180px 1fr 210px}}
 </style>
 </head>
 <body>
-
-<div class="bg-deep"></div><div class="bg-grid"></div><div class="bg-scan"></div><div class="bg-vignette"></div><div class="scanline"></div>
-
-<!-- BOOT -->
-<div class="boot-overlay" id="boot">
-  <div class="boot-text">VOYAGER</div>
-  <div class="boot-bar"><div class="boot-fill"></div></div>
-  <div style="font-family:var(--mono);font-size:11px;letter-spacing:0.2em;color:var(--text-dim);text-transform:uppercase;">India Intelligence Grid · Initializing</div>
-</div>
-
-<!-- HUD -->
-<div class="hud-frame">
-  <div class="corner tl"></div><div class="corner tr"></div>
-  <div class="corner bl"></div><div class="corner br"></div>
-</div>
-
-<!-- INDIA HOLOGRAPHIC MAP -->
-<div id="india-map-container">
-  <div id="india-svg-wrap">
-    <svg id="india-svg" viewBox="-70 -50 500 510" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <filter id="glow"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <filter id="starGlow"><feGaussianBlur stdDeviation="2.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <filter id="bigBlur"><feGaussianBlur stdDeviation="14"/></filter>
-        <radialGradient id="mapFill" cx="45%" cy="40%">
-          <stop offset="0%" stop-color="rgba(34,140,238,0.16)"/>
-          <stop offset="70%" stop-color="rgba(20,80,180,0.07)"/>
-          <stop offset="100%" stop-color="rgba(10,40,120,0.03)"/>
-        </radialGradient>
-      </defs>
-
-      <path d="M116.16,22.74L120.95,23.01L132.48,17.23L138.43,17.07L141.22,18.1L142.83,21.01L146.43,21.42L147.11,23.45L148.95,21.73L151.46,22.84L147.35,31.55L143.84,32.43L143.93,34.1L140.45,34.39L141.65,36.83L139.16,39.49L132.86,39.83L135.34,43.61L133.11,43.8L133.51,46.52L135.55,48.55L139.22,48.67L138.28,50.8L140.93,54.46L133.85,58.31L131.54,56.69L131.06,54.24L126.85,56.11L131.55,62.17L131.53,69.86L135.45,68.25L139.45,73.13L144.81,73.71L149.35,76.07L149.11,78.13L159.02,81.89L150.9,87.52L151.42,89.24L149.4,90.96L150.07,93.65L148.21,94.79L147.36,97.95L152.75,101.03L153.38,99.49L161.21,103.18L162.52,105.75L164.09,105.44L169.44,108.87L171.7,108.12L176.32,110.88L179.49,110.39L179.82,112.88L185.34,113.42L186.92,114.82L187.79,113.13L193.59,114.64L193.39,113.52L197.09,112.71L202.82,114.72L203.1,118.03L209.78,120.02L210.04,121.28L215.11,119.98L217.85,123.43L223.73,122.85L228.58,125.07L232.74,123.22L232.98,124.75L236.02,125.92L242.7,124.34L244.17,125.76L246.34,121.5L243.91,117.2L246.47,109.62L245.51,108.18L251.84,105.92L254.91,108.88L253.38,112.15L255.23,115.27L253.17,116.95L257.9,120.72L260.9,120.1L266.78,121.91L272.81,119.67L277.23,121.15L289.1,120.73L291.57,119.45L293.57,120.27L293.34,115.63L294.39,115.31L293.08,113.12L288.63,113.09L287.54,111.42L288.52,109.96L291.96,110.46L295.85,108.52L298.44,109.59L301.78,107.5L301.15,105.55L304.13,104.99L310.28,99.78L313.78,99.75L320.47,96.74L321.76,95.67L320.87,94.25L324.93,92.63L332.7,95.2L342.35,91.65L345.39,93.8L343.97,95.55L345.72,94.69L349.41,98.97L346.66,101.55L347.77,102.41L347.71,101.14L350.38,100.35L352.98,103.28L358.29,104.95L358.72,107.13L358.37,108.64L352.55,111.71L355.58,117.52L350.29,114.35L344.48,115.4L331.31,122.88L330.25,124.76L331.76,129.01L328.25,134.74L325.03,136.67L324.31,138.71L326.33,139.7L326.0,141.86L319.2,154.14L314.29,152.36L311.25,153.07L309.09,151.5L310.43,155.96L309.79,162.19L308.67,163.63L306.63,163.21L307.55,172.02L303.94,175.66L301.42,173.25L301.18,174.87L300.23,175.25L296.3,155.59L293.46,156.42L292.36,155.42L292.52,158.31L289.98,160.32L290.88,162.67L288.23,164.42L285.7,160.5L284.91,162.55L282.63,156.82L285.25,151.21L287.83,151.6L288.8,149.78L289.98,150.82L289.77,149.63L291.68,150.88L291.9,148.61L294.88,147.69L296.5,144.1L295.71,142.26L298.96,142.52L298.07,140.79L293.63,139.01L273.86,139.5L266.5,137.82L267.09,130.46L264.56,127.15L263.32,130.19L260.62,129.75L258.17,128.28L257.34,125.35L255.11,125.23L256.89,127.11L252.2,126.87L253.16,125.91L248.94,122.76L248.11,124.4L250.47,125.78L246.23,128.17L245.37,131.93L247.36,132.0L250.66,135.39L253.96,135.22L256.37,138.14L255.33,139.26L249.46,138.75L248.94,141.75L245.75,141.85L244.17,144.88L248.14,148.11L253.04,149.27L253.46,152.62L251.09,153.98L250.88,156.38L253.84,158.1L252.84,160.83L256.22,161.28L254.38,163.61L257.47,173.25L256.1,176.18L257.49,179.09L255.29,179.17L254.56,177.52L254.43,179.33L252.88,178.64L253.57,174.84L251.87,174.14L250.84,177.08L250.39,175.59L249.66,176.18L249.57,179.38L249.31,179.44L249.44,179.25L249.2,178.91L249.37,178.37L249.24,178.18L248.91,179.61L248.97,178.16L247.42,178.01L247.08,179.95L246.61,173.32L246.27,172.84L244.31,172.48L246.39,173.82L244.66,174.84L241.68,178.43L232.99,180.23L230.79,182.47L229.75,184.75L231.55,188.31L230.25,188.83L232.71,189.44L228.59,191.54L229.28,193.33L227.88,194.26L229.41,193.67L224.2,198.12L214.05,201.01L207.92,204.45L196.83,216.67L189.84,219.87L185.67,224.79L174.58,231.02L174.56,236.42L167.31,239.29L161.91,239.44L157.89,246.01L154.71,243.99L149.66,246.44L147.03,253.2L148.83,258.8L147.98,264.58L150.67,273.41L148.35,282.68L143.5,291.61L144.99,306.97L137.83,307.54L133.02,316.28L133.74,317.93L136.55,318.61L125.28,321.57L122.89,328.85L116.54,332.23L109.98,329.11L104.29,322.9L105.76,321.84L104.2,322.52L101.98,317.65L100.93,310.12L96.04,297.79L92.05,291.17L87.88,287.86L83.29,278.44L82.03,269.41L78.43,262.19L79.53,262.59L76.68,257.28L72.16,253.09L70.65,246.67L66.59,242.14L65.5,238.46L66.74,238.08L65.53,238.29L64.89,236.97L66.43,237.1L64.91,235.99L65.92,235.79L64.99,231.0L63.35,228.1L64.21,228.54L64.67,228.16L60.2,217.71L62.26,218.55L62.07,216.56L60.06,216.24L59.88,214.07L61.09,214.89L59.27,212.32L60.27,210.84L60.98,211.37L60.78,211.67L61.02,212.0L61.22,212.09L60.88,210.39L59.9,210.03L61.84,208.64L60.84,206.73L60.5,208.45L58.65,210.08L58.41,205.43L59.94,205.62L57.9,203.68L59.66,202.95L57.73,202.9L56.81,199.46L60.17,189.01L57.77,186.31L59.17,185.92L57.44,185.3L58.44,184.26L56.62,185.38L56.6,183.96L56.9,183.74L57.29,184.11L57.86,184.06L56.11,182.92L60.14,178.66L55.36,178.81L57.96,175.3L55.01,175.27L55.96,172.69L58.1,173.04L59.94,172.01L55.34,171.55L54.07,172.69L52.79,171.52L51.03,174.75L51.83,175.86L51.64,175.63L51.4,175.52L50.81,175.46L52.55,179.22L50.17,184.04L34.44,189.78L26.31,185.67L11.41,171.54L13.04,169.6L14.98,172.11L18.43,170.2L20.35,171.35L21.09,169.64L22.07,170.51L26.53,168.88L29.87,164.04L27.08,163.08L27.14,164.24L23.0,164.69L20.88,166.67L14.59,165.56L13.13,164.25L12.99,164.66L12.38,163.9L12.09,164.23L11.99,163.8L11.75,164.07L9.23,162.8L7.71,161.81L8.75,162.29L7.07,161.14L8.29,160.3L5.19,157.96L9.89,153.79L6.27,155.29L5.21,154.46L4.27,157.14L2.1,156.75L4.27,155.47L2.31,155.51L4.36,152.71L9.19,152.74L9.86,148.88L10.57,150.02L11.54,149.0L19.46,149.12L24.71,150.49L31.26,147.67L31.38,149.58L33.12,149.98L38.07,147.88L36.59,147.4L37.78,144.64L32.52,136.65L32.46,133.2L27.69,133.07L25.62,130.54L26.53,123.61L18.43,121.44L19.36,116.48L28.95,107.12L31.6,107.14L35.05,110.58L47.57,107.7L53.58,98.57L60.36,95.65L65.86,85.29L72.89,82.44L72.42,79.14L81.72,72.55L79.45,71.9L81.21,68.58L79.16,65.31L80.63,63.34L89.97,59.55L86.66,56.71L81.54,56.53L81.83,52.59L77.76,53.41L68.76,49.75L68.27,40.74L65.88,35.25L66.55,33.09L69.03,33.16L69.9,30.89L73.77,29.46L74.83,26.88L70.17,25.73L70.6,22.3L65.96,22.25L62.56,20.08L63.19,18.51L55.75,18.61L55.51,14.31L60.62,11.55L61.77,9.06L71.52,8.75L69.19,6.52L73.72,7.52L81.63,4.56L84.23,6.32L87.2,5.26L90.52,6.11L91.04,8.7L94.4,8.43L97.97,11.97L106.4,15.13L107.87,18.52L114.08,20.1L116.16,22.74Z" fill="rgba(34,160,238,0.10)" filter="url(#bigBlur)"/>
-      <g stroke="rgba(34,211,238,0.10)" stroke-width="0.7" fill="none"><line x1="-35" y1="30" x2="-50" y2="150"/><line x1="-50" y1="150" x2="-30" y2="290"/><line x1="-30" y1="290" x2="20" y2="390"/><line x1="20" y1="390" x2="150" y2="400"/><line x1="150" y1="400" x2="290" y2="385"/><line x1="290" y1="385" x2="385" y2="300"/><line x1="385" y1="300" x2="400" y2="170"/><line x1="400" y1="170" x2="390" y2="60"/><line x1="390" y1="60" x2="300" y2="-25"/><line x1="300" y1="-25" x2="160" y2="-35"/><line x1="160" y1="-35" x2="40" y2="-20"/><line x1="40" y1="-20" x2="-35" y2="30"/></g><circle cx="-35" cy="30" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="-50" cy="150" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="-30" cy="290" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="20" cy="390" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="150" cy="400" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="290" cy="385" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="385" cy="300" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="400" cy="170" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="390" cy="60" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="300" cy="-25" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="160" cy="-35" r="1.8" fill="rgba(34,211,238,0.5)"/><circle cx="40" cy="-20" r="1.8" fill="rgba(34,211,238,0.5)"/>
-      <path id="india-outline" d="M116.16,22.74L120.95,23.01L132.48,17.23L138.43,17.07L141.22,18.1L142.83,21.01L146.43,21.42L147.11,23.45L148.95,21.73L151.46,22.84L147.35,31.55L143.84,32.43L143.93,34.1L140.45,34.39L141.65,36.83L139.16,39.49L132.86,39.83L135.34,43.61L133.11,43.8L133.51,46.52L135.55,48.55L139.22,48.67L138.28,50.8L140.93,54.46L133.85,58.31L131.54,56.69L131.06,54.24L126.85,56.11L131.55,62.17L131.53,69.86L135.45,68.25L139.45,73.13L144.81,73.71L149.35,76.07L149.11,78.13L159.02,81.89L150.9,87.52L151.42,89.24L149.4,90.96L150.07,93.65L148.21,94.79L147.36,97.95L152.75,101.03L153.38,99.49L161.21,103.18L162.52,105.75L164.09,105.44L169.44,108.87L171.7,108.12L176.32,110.88L179.49,110.39L179.82,112.88L185.34,113.42L186.92,114.82L187.79,113.13L193.59,114.64L193.39,113.52L197.09,112.71L202.82,114.72L203.1,118.03L209.78,120.02L210.04,121.28L215.11,119.98L217.85,123.43L223.73,122.85L228.58,125.07L232.74,123.22L232.98,124.75L236.02,125.92L242.7,124.34L244.17,125.76L246.34,121.5L243.91,117.2L246.47,109.62L245.51,108.18L251.84,105.92L254.91,108.88L253.38,112.15L255.23,115.27L253.17,116.95L257.9,120.72L260.9,120.1L266.78,121.91L272.81,119.67L277.23,121.15L289.1,120.73L291.57,119.45L293.57,120.27L293.34,115.63L294.39,115.31L293.08,113.12L288.63,113.09L287.54,111.42L288.52,109.96L291.96,110.46L295.85,108.52L298.44,109.59L301.78,107.5L301.15,105.55L304.13,104.99L310.28,99.78L313.78,99.75L320.47,96.74L321.76,95.67L320.87,94.25L324.93,92.63L332.7,95.2L342.35,91.65L345.39,93.8L343.97,95.55L345.72,94.69L349.41,98.97L346.66,101.55L347.77,102.41L347.71,101.14L350.38,100.35L352.98,103.28L358.29,104.95L358.72,107.13L358.37,108.64L352.55,111.71L355.58,117.52L350.29,114.35L344.48,115.4L331.31,122.88L330.25,124.76L331.76,129.01L328.25,134.74L325.03,136.67L324.31,138.71L326.33,139.7L326.0,141.86L319.2,154.14L314.29,152.36L311.25,153.07L309.09,151.5L310.43,155.96L309.79,162.19L308.67,163.63L306.63,163.21L307.55,172.02L303.94,175.66L301.42,173.25L301.18,174.87L300.23,175.25L296.3,155.59L293.46,156.42L292.36,155.42L292.52,158.31L289.98,160.32L290.88,162.67L288.23,164.42L285.7,160.5L284.91,162.55L282.63,156.82L285.25,151.21L287.83,151.6L288.8,149.78L289.98,150.82L289.77,149.63L291.68,150.88L291.9,148.61L294.88,147.69L296.5,144.1L295.71,142.26L298.96,142.52L298.07,140.79L293.63,139.01L273.86,139.5L266.5,137.82L267.09,130.46L264.56,127.15L263.32,130.19L260.62,129.75L258.17,128.28L257.34,125.35L255.11,125.23L256.89,127.11L252.2,126.87L253.16,125.91L248.94,122.76L248.11,124.4L250.47,125.78L246.23,128.17L245.37,131.93L247.36,132.0L250.66,135.39L253.96,135.22L256.37,138.14L255.33,139.26L249.46,138.75L248.94,141.75L245.75,141.85L244.17,144.88L248.14,148.11L253.04,149.27L253.46,152.62L251.09,153.98L250.88,156.38L253.84,158.1L252.84,160.83L256.22,161.28L254.38,163.61L257.47,173.25L256.1,176.18L257.49,179.09L255.29,179.17L254.56,177.52L254.43,179.33L252.88,178.64L253.57,174.84L251.87,174.14L250.84,177.08L250.39,175.59L249.66,176.18L249.57,179.38L249.31,179.44L249.44,179.25L249.2,178.91L249.37,178.37L249.24,178.18L248.91,179.61L248.97,178.16L247.42,178.01L247.08,179.95L246.61,173.32L246.27,172.84L244.31,172.48L246.39,173.82L244.66,174.84L241.68,178.43L232.99,180.23L230.79,182.47L229.75,184.75L231.55,188.31L230.25,188.83L232.71,189.44L228.59,191.54L229.28,193.33L227.88,194.26L229.41,193.67L224.2,198.12L214.05,201.01L207.92,204.45L196.83,216.67L189.84,219.87L185.67,224.79L174.58,231.02L174.56,236.42L167.31,239.29L161.91,239.44L157.89,246.01L154.71,243.99L149.66,246.44L147.03,253.2L148.83,258.8L147.98,264.58L150.67,273.41L148.35,282.68L143.5,291.61L144.99,306.97L137.83,307.54L133.02,316.28L133.74,317.93L136.55,318.61L125.28,321.57L122.89,328.85L116.54,332.23L109.98,329.11L104.29,322.9L105.76,321.84L104.2,322.52L101.98,317.65L100.93,310.12L96.04,297.79L92.05,291.17L87.88,287.86L83.29,278.44L82.03,269.41L78.43,262.19L79.53,262.59L76.68,257.28L72.16,253.09L70.65,246.67L66.59,242.14L65.5,238.46L66.74,238.08L65.53,238.29L64.89,236.97L66.43,237.1L64.91,235.99L65.92,235.79L64.99,231.0L63.35,228.1L64.21,228.54L64.67,228.16L60.2,217.71L62.26,218.55L62.07,216.56L60.06,216.24L59.88,214.07L61.09,214.89L59.27,212.32L60.27,210.84L60.98,211.37L60.78,211.67L61.02,212.0L61.22,212.09L60.88,210.39L59.9,210.03L61.84,208.64L60.84,206.73L60.5,208.45L58.65,210.08L58.41,205.43L59.94,205.62L57.9,203.68L59.66,202.95L57.73,202.9L56.81,199.46L60.17,189.01L57.77,186.31L59.17,185.92L57.44,185.3L58.44,184.26L56.62,185.38L56.6,183.96L56.9,183.74L57.29,184.11L57.86,184.06L56.11,182.92L60.14,178.66L55.36,178.81L57.96,175.3L55.01,175.27L55.96,172.69L58.1,173.04L59.94,172.01L55.34,171.55L54.07,172.69L52.79,171.52L51.03,174.75L51.83,175.86L51.64,175.63L51.4,175.52L50.81,175.46L52.55,179.22L50.17,184.04L34.44,189.78L26.31,185.67L11.41,171.54L13.04,169.6L14.98,172.11L18.43,170.2L20.35,171.35L21.09,169.64L22.07,170.51L26.53,168.88L29.87,164.04L27.08,163.08L27.14,164.24L23.0,164.69L20.88,166.67L14.59,165.56L13.13,164.25L12.99,164.66L12.38,163.9L12.09,164.23L11.99,163.8L11.75,164.07L9.23,162.8L7.71,161.81L8.75,162.29L7.07,161.14L8.29,160.3L5.19,157.96L9.89,153.79L6.27,155.29L5.21,154.46L4.27,157.14L2.1,156.75L4.27,155.47L2.31,155.51L4.36,152.71L9.19,152.74L9.86,148.88L10.57,150.02L11.54,149.0L19.46,149.12L24.71,150.49L31.26,147.67L31.38,149.58L33.12,149.98L38.07,147.88L36.59,147.4L37.78,144.64L32.52,136.65L32.46,133.2L27.69,133.07L25.62,130.54L26.53,123.61L18.43,121.44L19.36,116.48L28.95,107.12L31.6,107.14L35.05,110.58L47.57,107.7L53.58,98.57L60.36,95.65L65.86,85.29L72.89,82.44L72.42,79.14L81.72,72.55L79.45,71.9L81.21,68.58L79.16,65.31L80.63,63.34L89.97,59.55L86.66,56.71L81.54,56.53L81.83,52.59L77.76,53.41L68.76,49.75L68.27,40.74L65.88,35.25L66.55,33.09L69.03,33.16L69.9,30.89L73.77,29.46L74.83,26.88L70.17,25.73L70.6,22.3L65.96,22.25L62.56,20.08L63.19,18.51L55.75,18.61L55.51,14.31L60.62,11.55L61.77,9.06L71.52,8.75L69.19,6.52L73.72,7.52L81.63,4.56L84.23,6.32L87.2,5.26L90.52,6.11L91.04,8.7L94.4,8.43L97.97,11.97L106.4,15.13L107.87,18.52L114.08,20.1L116.16,22.74Z" fill="url(#mapFill)" stroke="rgba(80,225,255,0.95)" stroke-width="1.6" stroke-linejoin="round" filter="url(#glow)"/>
-      <path d="M303.95,277.47L304.83,282.39L302.77,282.74L303.83,284.28L301.99,284.56L301.35,280.99L302.54,280.76L302.6,279.99L301.79,278.62L302.68,277.88L303.49,278.02L303.91,277.8L303.95,277.47Z" fill="url(#mapFill)" stroke="rgba(80,225,255,0.8)" stroke-width="1.2" stroke-linejoin="round" filter="url(#glow)"/><path d="M305.68,270.45L306.26,272.92L304.63,272.75L305.97,273.64L305.59,275.96L303.82,275.61L303.71,276.15L304.44,276.99L302.79,277.79L303.28,272.1L305.68,270.45Z" fill="url(#mapFill)" stroke="rgba(80,225,255,0.8)" stroke-width="1.2" stroke-linejoin="round" filter="url(#glow)"/><path d="M301.54,285.34L301.57,287.35L302.62,287.33L301.95,287.57L301.7,288.77L302.65,289.07L301.66,293.85L299.24,289.67L299.86,288.58L300.39,289.63L301.54,285.34Z" fill="url(#mapFill)" stroke="rgba(80,225,255,0.8)" stroke-width="1.2" stroke-linejoin="round" filter="url(#glow)"/><path d="M315.41,341.59L316.84,344.32L315.37,347.14L313.14,342.91L315.41,341.59Z" fill="url(#mapFill)" stroke="rgba(80,225,255,0.8)" stroke-width="1.2" stroke-linejoin="round" filter="url(#glow)"/>
-      <g id="mesh" stroke="rgba(60,190,255,0.30)" stroke-width="0.7" fill="none"><line x1="82.86" y1="38.61" x2="209.17" y2="134.47"/><line x1="82.86" y1="38.61" x2="112.27" y2="100.37"/><line x1="135.34" y1="184.6" x2="186.71" y2="223.66"/><line x1="82.86" y1="38.61" x2="289.71" y2="128.26"/><line x1="55.77" y1="163.48" x2="59.55" y2="207.97"/><line x1="112.27" y1="100.37" x2="158.03" y2="120.24"/><line x1="109.34" y1="299.08" x2="117.03" y2="276.95"/><line x1="71.51" y1="214.29" x2="95.92" y2="166.87"/><line x1="71.51" y1="214.29" x2="74.68" y2="250.65"/><line x1="55.77" y1="163.48" x2="95.92" y2="166.87"/><line x1="209.17" y1="134.47" x2="217.59" y2="194.19"/><line x1="82.86" y1="38.61" x2="83.84" y2="66.27"/><line x1="83.84" y1="66.27" x2="94.94" y2="119.45"/><line x1="217.59" y1="194.19" x2="248.46" y2="168.56"/><line x1="74.68" y1="250.65" x2="117.03" y2="276.95"/><line x1="95.92" y1="166.87" x2="128.01" y2="227.05"/><line x1="149.74" y1="275.71" x2="217.59" y2="194.19"/><line x1="112.27" y1="100.37" x2="114.83" y2="160.77"/><line x1="94.94" y1="119.45" x2="112.27" y2="100.37"/><line x1="71.51" y1="214.29" x2="128.01" y2="227.05"/><line x1="74.68" y1="250.65" x2="109.34" y2="299.08"/><line x1="186.71" y1="223.66" x2="217.59" y2="194.19"/><line x1="59.55" y1="207.97" x2="71.51" y2="214.29"/><line x1="135.34" y1="184.6" x2="217.59" y2="194.19"/><line x1="100.92" y1="311.27" x2="109.34" y2="299.08"/><line x1="74.68" y1="250.65" x2="128.01" y2="227.05"/><line x1="55.77" y1="163.48" x2="82.86" y2="38.61"/><line x1="114.83" y1="160.77" x2="135.34" y2="184.6"/><line x1="95.92" y1="166.87" x2="135.34" y2="184.6"/><line x1="128.01" y1="227.05" x2="149.74" y2="275.71"/><line x1="209.17" y1="134.47" x2="289.71" y2="128.26"/><line x1="135.34" y1="184.6" x2="158.03" y2="120.24"/><line x1="95.92" y1="166.87" x2="114.83" y2="160.77"/><line x1="128.01" y1="227.05" x2="135.34" y2="184.6"/><line x1="209.17" y1="134.47" x2="248.46" y2="168.56"/><line x1="149.74" y1="275.71" x2="289.71" y2="128.26"/><line x1="135.34" y1="184.6" x2="209.17" y2="134.47"/><line x1="109.34" y1="299.08" x2="149.74" y2="275.71"/><line x1="149.74" y1="275.71" x2="248.46" y2="168.56"/><line x1="117.03" y1="276.95" x2="128.01" y2="227.05"/><line x1="74.68" y1="250.65" x2="100.92" y2="311.27"/><line x1="59.55" y1="207.97" x2="74.68" y2="250.65"/><line x1="100.92" y1="311.27" x2="149.74" y2="275.71"/><line x1="55.77" y1="163.48" x2="83.84" y2="66.27"/><line x1="94.94" y1="119.45" x2="95.92" y2="166.87"/><line x1="94.94" y1="119.45" x2="114.83" y2="160.77"/><line x1="248.46" y1="168.56" x2="289.71" y2="128.26"/><line x1="55.77" y1="163.48" x2="94.94" y2="119.45"/><line x1="117.03" y1="276.95" x2="149.74" y2="275.71"/><line x1="149.74" y1="275.71" x2="186.71" y2="223.66"/><line x1="82.86" y1="38.61" x2="158.03" y2="120.24"/><line x1="114.83" y1="160.77" x2="158.03" y2="120.24"/><line x1="83.84" y1="66.27" x2="112.27" y2="100.37"/><line x1="128.01" y1="227.05" x2="186.71" y2="223.66"/><line x1="158.03" y1="120.24" x2="209.17" y2="134.47"/><line x1="59.55" y1="207.97" x2="95.92" y2="166.87"/></g>
-      <g stroke="rgba(170,235,255,0.9)" stroke-width="1" fill="#cfeeff" filter="url(#starGlow)"><g class="star" opacity="0.95"><line x1="102.27" y1="100.37" x2="122.27" y2="100.37"/><line x1="112.27" y1="90.37" x2="112.27" y2="110.37"/><circle cx="112.27" cy="100.37" r="2.6"/></g><g class="star" opacity="0.95"><line x1="49.55" y1="207.97" x2="69.55" y2="207.97"/><line x1="59.55" y1="197.97" x2="59.55" y2="217.97"/><circle cx="59.55" cy="207.97" r="2.6"/></g><g class="star" opacity="0.95"><line x1="107.03" y1="276.95" x2="127.03" y2="276.95"/><line x1="117.03" y1="266.95" x2="117.03" y2="286.95"/><circle cx="117.03" cy="276.95" r="2.6"/></g><g class="star" opacity="0.95"><line x1="139.74" y1="275.71" x2="159.74" y2="275.71"/><line x1="149.74" y1="265.71" x2="149.74" y2="285.71"/><circle cx="149.74" cy="275.71" r="2.6"/></g><g class="star" opacity="0.95"><line x1="238.46" y1="168.56" x2="258.46000000000004" y2="168.56"/><line x1="248.46" y1="158.56" x2="248.46" y2="178.56"/><circle cx="248.46" cy="168.56" r="2.6"/></g><g class="star" opacity="0.95"><line x1="118.00999999999999" y1="227.05" x2="138.01" y2="227.05"/><line x1="128.01" y1="217.05" x2="128.01" y2="237.05"/><circle cx="128.01" cy="227.05" r="2.6"/></g><g class="star" opacity="0.95"><line x1="90.92" y1="311.27" x2="110.92" y2="311.27"/><line x1="100.92" y1="301.27" x2="100.92" y2="321.27"/><circle cx="100.92" cy="311.27" r="2.6"/></g><g class="star" opacity="0.95"><line x1="64.68" y1="250.65" x2="84.68" y2="250.65"/><line x1="74.68" y1="240.65" x2="74.68" y2="260.65"/><circle cx="74.68" cy="250.65" r="2.6"/></g><g class="star" opacity="0.95"><line x1="45.77" y1="163.48" x2="65.77000000000001" y2="163.48"/><line x1="55.77" y1="153.48" x2="55.77" y2="173.48"/><circle cx="55.77" cy="163.48" r="2.6"/></g><g class="star" opacity="0.95"><line x1="61.510000000000005" y1="214.29" x2="81.51" y2="214.29"/><line x1="71.51" y1="204.29" x2="71.51" y2="224.29"/><circle cx="71.51" cy="214.29" r="2.6"/></g><g class="star" opacity="0.7"><line x1="88.94" y1="119.45" x2="100.94" y2="119.45"/><line x1="94.94" y1="113.45" x2="94.94" y2="125.45"/><circle cx="94.94" cy="119.45" r="1.8"/></g><g class="star" opacity="0.7"><line x1="152.03" y1="120.24" x2="164.03" y2="120.24"/><line x1="158.03" y1="114.24" x2="158.03" y2="126.24"/><circle cx="158.03" cy="120.24" r="1.8"/></g><g class="star" opacity="0.7"><line x1="108.83" y1="160.77" x2="120.83" y2="160.77"/><line x1="114.83" y1="154.77" x2="114.83" y2="166.77"/><circle cx="114.83" cy="160.77" r="1.8"/></g><g class="star" opacity="0.7"><line x1="129.34" y1="184.6" x2="141.34" y2="184.6"/><line x1="135.34" y1="178.6" x2="135.34" y2="190.6"/><circle cx="135.34" cy="184.6" r="1.8"/></g><g class="star" opacity="0.7"><line x1="203.17" y1="134.47" x2="215.17" y2="134.47"/><line x1="209.17" y1="128.47" x2="209.17" y2="140.47"/><circle cx="209.17" cy="134.47" r="1.8"/></g><g class="star" opacity="0.7"><line x1="283.71" y1="128.26" x2="295.71" y2="128.26"/><line x1="289.71" y1="122.25999999999999" x2="289.71" y2="134.26"/><circle cx="289.71" cy="128.26" r="1.8"/></g><g class="star" opacity="0.7"><line x1="76.86" y1="38.61" x2="88.86" y2="38.61"/><line x1="82.86" y1="32.61" x2="82.86" y2="44.61"/><circle cx="82.86" cy="38.61" r="1.8"/></g><g class="star" opacity="0.7"><line x1="77.84" y1="66.27" x2="89.84" y2="66.27"/><line x1="83.84" y1="60.269999999999996" x2="83.84" y2="72.27"/><circle cx="83.84" cy="66.27" r="1.8"/></g><g class="star" opacity="0.7"><line x1="89.92" y1="166.87" x2="101.92" y2="166.87"/><line x1="95.92" y1="160.87" x2="95.92" y2="172.87"/><circle cx="95.92" cy="166.87" r="1.8"/></g><g class="star" opacity="0.7"><line x1="103.34" y1="299.08" x2="115.34" y2="299.08"/><line x1="109.34" y1="293.08" x2="109.34" y2="305.08"/><circle cx="109.34" cy="299.08" r="1.8"/></g><g class="star" opacity="0.7"><line x1="180.71" y1="223.66" x2="192.71" y2="223.66"/><line x1="186.71" y1="217.66" x2="186.71" y2="229.66"/><circle cx="186.71" cy="223.66" r="1.8"/></g><g class="star" opacity="0.7"><line x1="211.59" y1="194.19" x2="223.59" y2="194.19"/><line x1="217.59" y1="188.19" x2="217.59" y2="200.19"/><circle cx="217.59" cy="194.19" r="1.8"/></g></g>
-      <g class="routes" fill="none" stroke-linecap="round"><path class="route" d="M112.27,100.37 Q66.5,144.7 59.55,207.97"/><path class="route" d="M112.27,100.37 Q82.9,189.5 117.03,276.95"/><path class="route" d="M112.27,100.37 Q168.1,159.0 248.46,168.56"/><path class="route" d="M59.55,207.97 Q92.5,258.1 149.74,275.71"/><path class="route" d="M117.03,276.95 Q202.3,246.4 248.46,168.56"/><path class="route" d="M59.55,207.97 Q75.9,252.8 117.03,276.95"/><path class="route" d="M149.74,275.71 Q218.4,239.9 248.46,168.56"/><path class="route" d="M112.27,100.37 Q97.3,166.5 128.01,227.05"/></g>
-      <g class="radar" fill="none"><circle cx="139.94" cy="158.99" r="225" stroke="rgba(34,211,238,0.07)" stroke-width="1"/><circle cx="139.94" cy="158.99" r="170" stroke="rgba(34,211,238,0.05)" stroke-width="1" stroke-dasharray="3 9"/><circle class="radar-spin" cx="139.94" cy="158.99" r="252" stroke="rgba(34,211,238,0.18)" stroke-width="1.2" stroke-dasharray="2 14 60 14"/></g>
-
-    </svg>
-
-    <div class="city-pin" style="left:36.5%;top:29.5%" data-city="Delhi" data-iata="DEL" data-state="Delhi NCT"><div class="city-pin-dot"></div><div class="city-pin-label">DEL · New Delhi</div></div>
-    <div class="city-pin" style="left:25.9%;top:50.6%" data-city="Mumbai" data-iata="BOM" data-state="Maharashtra"><div class="city-pin-dot"></div><div class="city-pin-label left">BOM · Mumbai</div></div>
-    <div class="city-pin" style="left:37.4%;top:64.1%" data-city="Bengaluru" data-iata="BLR" data-state="Karnataka"><div class="city-pin-dot"></div><div class="city-pin-label left">BLR · Bengaluru</div></div>
-    <div class="city-pin" style="left:43.9%;top:63.9%" data-city="Chennai" data-iata="MAA" data-state="Tamil Nadu"><div class="city-pin-dot"></div><div class="city-pin-label">MAA · Chennai</div></div>
-    <div class="city-pin" style="left:63.7%;top:42.9%" data-city="Kolkata" data-iata="CCU" data-state="West Bengal"><div class="city-pin-dot"></div><div class="city-pin-label">CCU · Kolkata</div></div>
-    <div class="city-pin" style="left:39.6%;top:54.3%" data-city="Hyderabad" data-iata="HYD" data-state="Telangana"><div class="city-pin-dot"></div><div class="city-pin-label">HYD · Hyderabad</div></div>
-    <div class="city-pin" style="left:34.2%;top:70.8%" data-city="Kochi" data-iata="COK" data-state="Kerala"><div class="city-pin-dot"></div><div class="city-pin-label left">COK · Kochi</div></div>
-    <div class="city-pin" style="left:28.9%;top:59.0%" data-city="Goa" data-iata="GOI" data-state="Goa"><div class="city-pin-dot"></div><div class="city-pin-label left">GOI · Goa</div></div>
-    <div class="city-pin" style="left:25.2%;top:41.9%" data-city="Ahmedabad" data-iata="AMD" data-state="Gujarat"><div class="city-pin-dot"></div><div class="city-pin-label left">AMD</div></div>
-    <div class="city-pin" style="left:28.3%;top:51.8%" data-city="Pune" data-iata="PNQ" data-state="Maharashtra"><div class="city-pin-dot"></div><div class="city-pin-label">PNQ</div></div>
-  </div>
-</div>
-
-<div id="city-tooltip"><h3 id="tt-city">—</h3><div class="ct-meta" id="tt-meta">—</div><div class="ct-action">Click to inspect</div></div>
-
-<!-- TOP BAR -->
-<div class="topbar">
-  <div class="brand">
-    <div class="mark"></div>
-    <div class="brand-text">
-      <h1>VOYAGER</h1>
-      <div class="sub">India Travel Intelligence · Microsoft AI Build</div>
+<div id="app">
+  <div id="header">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 40 40"><polygon points="20,3 34,11 34,29 20,37 6,29 6,11" fill="none" stroke="#00ffc8" stroke-width="1.4"/><line x1="20" y1="3" x2="20" y2="37" stroke="#00ffc8" stroke-width="0.6" opacity="0.5"/><line x1="6" y1="20" x2="34" y2="20" stroke="#00ffc8" stroke-width="0.6" opacity="0.5"/><circle cx="20" cy="20" r="3" fill="#00ffc8"/></svg>
+      <div><h1>VOYAGER</h1><div class="sub">INDIA TRAVEL INTELLIGENCE</div></div>
+    </div>
+    <div class="hstatus">
+      <div class="hstat"><span class="dot green"></span>Connected</div>
+      <div class="hstat"><span class="dot blue"></span>Orchestrator</div>
+      <button class="hbtn" id="mute-btn" title="Toggle voice">&#128266;</button>
+      <button class="hbtn stop" id="hdr-stop" title="Abort">&#9632;</button>
     </div>
   </div>
-  <div class="status-cluster">
-    <div class="pill" id="conn-pill"><div class="dot"></div><span id="conn-text">Linking</span></div>
-    <div class="pill" id="agent-pill"><div class="dot"></div><span>Orchestrator</span></div>
-    <button class="icon-btn" id="sound-btn" title="Toggle sound">🔊</button>
-    <button class="icon-btn" id="mute-btn" title="Toggle voice">🎙</button>
-  </div>
-</div>
-
-<!-- LEFT PANEL -->
-<div class="panel-left">
-  <div class="panel">
-    <h2><span class="marker"></span>Agent Network</h2>
-    <div class="agent idle" id="agent-orchestrator"><div class="agent-icon">◆</div><div class="agent-name">Orchestrator</div><div class="agent-state" id="state-orchestrator">idle</div></div>
-    <div class="agent idle" id="agent-weather-monitor"><div class="agent-icon">🌦</div><div class="agent-name">Weather Monitor</div><div class="agent-state" id="state-weather-monitor">standby</div></div>
-    <div class="agent idle" id="agent-rerouter"><div class="agent-icon">⚡</div><div class="agent-name">Dynamic Re-Router</div><div class="agent-state" id="state-rerouter">standby</div></div>
-    <div class="agent idle" style="opacity:0.5"><div class="agent-icon">📅</div><div class="agent-name">Itinerary Planner</div><div class="agent-state">partner</div></div>
-    <div class="agent idle" style="opacity:0.5"><div class="agent-icon">✈</div><div class="agent-name">Booking & Logistics</div><div class="agent-state">partner</div></div>
-  </div>
-  <div class="panel">
-    <h2><span class="marker"></span>Quick Inspect</h2>
-    <div class="city-chips">
-      <div class="city-chip" data-cmd="monitor Delhi">Delhi</div>
-      <div class="city-chip" data-cmd="monitor Mumbai">Mumbai</div>
-      <div class="city-chip" data-cmd="monitor Bengaluru">BLR</div>
-      <div class="city-chip" data-cmd="monitor Chennai">Chennai</div>
-      <div class="city-chip" data-cmd="monitor Kolkata">Kolkata</div>
-      <div class="city-chip" data-cmd="monitor Hyderabad">Hyd</div>
-      <div class="city-chip" data-cmd="monitor Goa">Goa</div>
-      <div class="city-chip" data-cmd="monitor Kochi">Kochi</div>
+  <div id="left" class="col">
+    <div class="block"><div class="sec-head">Agent Network</div><div id="agents"></div></div>
+    <div class="block"><div class="sec-head">Quick Inspect</div><div class="qi-grid" id="qi-grid"></div></div>
+    <div class="block"><div class="sec-head">Telemetry</div>
+      <div class="tel-grid">
+        <div class="tel"><div class="v" id="tel-cmd">0</div><div class="k">Commands</div></div>
+        <div class="tel"><div class="v" id="tel-tool">0</div><div class="k">Tools Fired</div></div>
+      </div>
     </div>
+    <div class="block"><div class="sec-head">History</div><div id="history"><div class="empty">No commands yet</div></div></div>
   </div>
-  <div class="panel">
-    <h2><span class="marker"></span>Telemetry</h2>
-    <div class="metric-grid">
-      <div class="metric"><div class="metric-label">Commands</div><div class="metric-value" id="m-cmds">0</div></div>
-      <div class="metric"><div class="metric-label">Tools Fired</div><div class="metric-value" id="m-tools">0</div></div>
+  <div id="center">
+    <div class="map-corner mc-tl">SECTOR // IND-SUBCONT</div>
+    <div class="map-corner mc-tr">GRID 08N-37N / 68E-97E</div>
+    <div class="map-corner mc-bl">SCAN MODE // ACTIVE</div>
+    <div class="map-corner mc-br">NODES // 10</div>
+    <div id="city-overlay"></div>
+    <svg id="map-svg" viewBox="-70 -50 500 510" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <div id="right" class="col">
+    <div class="block"><div class="sec-head">Forecast</div><div id="forecast"><div class="empty">Select a node</div></div></div>
+    <div class="block"><div class="sec-head">Air Quality (NAQI)</div><div id="aqi"><div class="empty">&mdash;</div></div></div>
+    <div class="block"><div class="sec-head">Disruption Analysis</div><div id="disruptions"><div class="empty">Awaiting scan</div></div></div>
+    <div class="block"><div class="sec-head" id="routes-head">Routes</div><div id="routes"><div class="empty">Select a node or type route</div></div></div>
+    <div class="block"><div class="sec-head">Seismic / Cyclone</div><div id="seismic"><div class="seis"><span class="dot green"></span>Monitoring region</div></div></div>
+    <div class="block"><div class="sec-head">Notepad</div><div id="notepad" contenteditable="true"></div></div>
+  </div>
+  <div id="footL"><div class="sec-head">Activity Stream</div><div id="stream"></div></div>
+  <div id="footR">
+    <div class="cmd-row">
+      <span class="cmd-arrow">&#9656;</span>
+      <input id="cmd-input" placeholder="inspect delhi / route del bom / delays mumbai" autocomplete="off">
+      <button class="cbtn stop" id="cmd-stop">&#9632;</button>
+      <button class="cbtn exec" id="cmd-exec">Execute</button>
     </div>
-    <div class="kv"><span class="k">Monitoring</span><span class="v" id="m-dest">—</span></div>
-    <div class="kv"><span class="k">Last cycle</span><span class="v" id="m-duration">—</span></div>
-    <div class="kv"><span class="k">Active alerts</span><span class="v" id="m-alerts">0</span></div>
-    <div class="kv"><span class="k">IPC signals</span><span class="v" id="m-signals">0</span></div>
-    <div class="kv"><span class="k">Voice engine</span><span class="v" id="m-voice">auto</span></div>
+    <div class="hint">Press / to focus &middot; commands: inspect, route, delays, scan, help</div>
   </div>
 </div>
-
-<!-- RIGHT PANEL -->
-<div class="panel-right">
-  <div class="panel"><h2><span class="marker"></span>Forecast</h2><div id="forecast"><div class="empty">Tap a city on the map to begin.</div></div></div>
-  <div class="panel"><h2><span class="marker"></span>Air Quality (AQI)</h2><div id="aqi"><div class="empty">No data.</div></div></div>
-  <div class="panel"><h2><span class="marker"></span>Seismic / Cyclone</h2><div id="seismic"><div class="empty">No data.</div></div></div>
-</div>
-
-<div class="toast-stack" id="toasts"></div>
-<div class="voice-bubble" id="voice"><div class="voice-bubble-inner" id="voice-text"></div></div>
-
-<!-- FEED -->
-<div class="feed-wrapper">
-  <div class="feed" id="feed">
-    <div class="feed-header"><span>Activity Stream</span><span id="feed-count">0 events</span></div>
-    <div id="feed-items"><div class="empty">VOYAGER online. Tap a city or type a command. Press / to focus.</div></div>
-  </div>
-</div>
-
-<!-- COMMAND BAR -->
-<div class="commandbar">
-  <div class="prompt">▸</div>
-  <input id="cmd-input" type="text" placeholder='e.g. "monitor Mumbai next week" or "check air quality Delhi"  ·  press /' autocomplete="off" />
-  <button id="cmd-send">Execute</button>
-</div>
-
 <script>
-(function(){setTimeout(function(){var b=document.getElementById('boot');if(b)b.classList.add('gone');},2200);})();
-</script>
-<script>
-const state={cmds:0,tools:0,signals:0,alerts:0,events:0};
+/* ═══════ CITY DATA — positions from original tuned dashboard ═══════ */
+const CITIES=[
+  {name:'Delhi',     iata:'DEL',lat:28.61,lon:77.21, x:112,y:100, side:'r'},
+  {name:'Mumbai',    iata:'BOM',lat:19.08,lon:72.88, x:60, y:208, side:'l'},
+  {name:'Bengaluru', iata:'BLR',lat:12.97,lon:77.59, x:117,y:277, side:'l'},
+  {name:'Chennai',   iata:'MAA',lat:13.08,lon:80.27, x:150,y:276, side:'r'},
+  {name:'Kolkata',   iata:'CCU',lat:22.57,lon:88.36, x:249,y:169, side:'r'},
+  {name:'Hyderabad', iata:'HYD',lat:17.39,lon:78.49, x:128,y:227, side:'r'},
+  {name:'Kochi',     iata:'COK',lat:9.93, lon:76.27, x:101,y:311, side:'l'},
+  {name:'Goa',       iata:'GOI',lat:15.30,lon:73.81, x:75, y:251, side:'l'},
+  {name:'Ahmedabad', iata:'AMD',lat:23.02,lon:72.57, x:56, y:164, side:'l'},
+  {name:'Pune',      iata:'PNQ',lat:18.52,lon:73.85, x:72, y:214, side:'r'},
+];
+const AGENTS=[
+  {nm:'ORCHESTRATOR',      rl:'Central command',     st:'idle'},
+  {nm:'WEATHER MONITOR',   rl:'Conditions / AQI',    st:'idle'},
+  {nm:'RE-ROUTER',         rl:'Disruption response',  st:'standby'},
+  {nm:'ITINERARY PLANNER', rl:'Route intelligence',   st:'partner'},
+  {nm:'BOOKING & LOGISTICS',rl:'Rail / air options',  st:'partner'},
+];
+/* ═══════ INDIA SVG PATH ═══════ */
+const INDIA_PATH="M116.16,22.74L120.95,23.01L132.48,17.23L138.43,17.07L141.22,18.1L142.83,21.01L146.43,21.42L147.11,23.45L148.95,21.73L151.46,22.84L147.35,31.55L143.84,32.43L143.93,34.1L140.45,34.39L141.65,36.83L139.16,39.49L132.86,39.83L135.34,43.61L133.11,43.8L133.51,46.52L135.55,48.55L139.22,48.67L138.28,50.8L140.93,54.46L133.85,58.31L131.54,56.69L131.06,54.24L126.85,56.11L131.55,62.17L131.53,69.86L135.45,68.25L139.45,73.13L144.81,73.71L149.35,76.07L149.11,78.13L159.02,81.89L150.9,87.52L151.42,89.24L149.4,90.96L150.07,93.65L148.21,94.79L147.36,97.95L152.75,101.03L153.38,99.49L161.21,103.18L162.52,105.75L164.09,105.44L169.44,108.87L171.7,108.12L176.32,110.88L179.49,110.39L179.82,112.88L185.34,113.42L186.92,114.82L187.79,113.13L193.59,114.64L193.39,113.52L197.09,112.71L202.82,114.72L203.1,118.03L209.78,120.02L210.04,121.28L215.11,119.98L217.85,123.43L223.73,122.85L228.58,125.07L232.74,123.22L232.98,124.75L236.02,125.92L242.7,124.34L244.17,125.76L246.34,121.5L243.91,117.2L246.47,109.62L245.51,108.18L251.84,105.92L254.91,108.88L253.38,112.15L255.23,115.27L253.17,116.95L257.9,120.72L260.9,120.1L266.78,121.91L272.81,119.67L277.23,121.15L289.1,120.73L291.57,119.45L293.57,120.27L293.34,115.63L294.39,115.31L293.08,113.12L288.63,113.09L287.54,111.42L288.52,109.96L291.96,110.46L295.85,108.52L298.44,109.59L301.78,107.5L301.15,105.55L304.13,104.99L310.28,99.78L313.78,99.75L320.47,96.74L321.76,95.67L320.87,94.25L324.93,92.63L332.7,95.2L342.35,91.65L345.39,93.8L343.97,95.55L345.72,94.69L349.41,98.97L346.66,101.55L347.77,102.41L347.71,101.14L350.38,100.35L352.98,103.28L358.29,104.95L358.72,107.13L358.37,108.64L352.55,111.71L355.58,117.52L350.29,114.35L344.48,115.4L331.31,122.88L330.25,124.76L331.76,129.01L328.25,134.74L325.03,136.67L324.31,138.71L326.33,139.7L326.0,141.86L319.2,154.14L314.29,152.36L311.25,153.07L309.09,151.5L310.43,155.96L309.79,162.19L308.67,163.63L306.63,163.21L307.55,172.02L303.94,175.66L301.42,173.25L301.18,174.87L300.23,175.25L296.3,155.59L293.46,156.42L292.36,155.42L292.52,158.31L289.98,160.32L290.88,162.67L288.23,164.42L285.7,160.5L284.91,162.55L282.63,156.82L285.25,151.21L287.83,151.6L288.8,149.78L289.98,150.82L289.77,149.63L291.68,150.88L291.9,148.61L294.88,147.69L296.5,144.1L295.71,142.26L298.96,142.52L298.07,140.79L293.63,139.01L273.86,139.5L266.5,137.82L267.09,130.46L264.56,127.15L263.32,130.19L260.62,129.75L258.17,128.28L257.34,125.35L255.11,125.23L256.89,127.11L252.2,126.87L253.16,125.91L248.94,122.76L248.11,124.4L250.47,125.78L246.23,128.17L245.37,131.93L247.36,132.0L250.66,135.39L253.96,135.22L256.37,138.14L255.33,139.26L249.46,138.75L248.94,141.75L245.75,141.85L244.17,144.88L248.14,148.11L253.04,149.27L253.46,152.62L251.09,153.98L250.88,156.38L253.84,158.1L252.84,160.83L256.22,161.28L254.38,163.61L257.47,173.25L256.1,176.18L257.49,179.09L255.29,179.17L254.56,177.52L254.43,179.33L252.88,178.64L253.57,174.84L251.87,174.14L250.84,177.08L250.39,175.59L249.66,176.18L249.57,179.38L249.31,179.44L249.44,179.25L249.2,178.91L249.37,178.37L249.24,178.18L248.91,179.61L248.97,178.16L247.42,178.01L247.08,179.95L246.61,173.32L246.27,172.84L244.31,172.48L246.39,173.82L244.66,174.84L241.68,178.43L232.99,180.23L230.79,182.47L229.75,184.75L231.55,188.31L230.25,188.83L232.71,189.44L228.59,191.54L229.28,193.33L227.88,194.26L229.41,193.67L224.2,198.12L214.05,201.01L207.92,204.45L196.83,216.67L189.84,219.87L185.67,224.79L174.58,231.02L174.56,236.42L167.31,239.29L161.91,239.44L157.89,246.01L154.71,243.99L149.66,246.44L147.03,253.2L148.83,258.8L147.98,264.58L150.67,273.41L148.35,282.68L143.5,291.61L144.99,306.97L137.83,307.54L133.02,316.28L133.74,317.93L136.55,318.61L125.28,321.57L122.89,328.85L116.54,332.23L109.98,329.11L104.29,322.9L105.76,321.84L104.2,322.52L101.98,317.65L100.93,310.12L96.04,297.79L92.05,291.17L87.88,287.86L83.29,278.44L82.03,269.41L78.43,262.19L79.53,262.59L76.68,257.28L72.16,253.09L70.65,246.67L66.59,242.14L65.5,238.46L66.74,238.08L65.53,238.29L64.89,236.97L66.43,237.1L64.91,235.99L65.92,235.79L64.99,231.0L63.35,228.1L64.21,228.54L64.67,228.16L60.2,217.71L62.26,218.55L62.07,216.56L60.06,216.24L59.88,214.07L61.09,214.89L59.27,212.32L60.27,210.84L60.98,211.37L60.78,211.67L61.02,212.0L61.22,212.09L60.88,210.39L59.9,210.03L61.84,208.64L60.84,206.73L60.5,208.45L58.65,210.08L58.41,205.43L59.94,205.62L57.9,203.68L59.66,202.95L57.73,202.9L56.81,199.46L60.17,189.01L57.77,186.31L59.17,185.92L57.44,185.3L58.44,184.26L56.62,185.38L56.6,183.96L56.9,183.74L57.29,184.11L57.86,184.06L56.11,182.92L60.14,178.66L55.36,178.81L57.96,175.3L55.01,175.27L55.96,172.69L58.1,173.04L59.94,172.01L55.34,171.55L54.07,172.69L52.79,171.52L51.03,174.75L51.83,175.86L51.64,175.63L51.4,175.52L50.81,175.46L52.55,179.22L50.17,184.04L34.44,189.78L26.31,185.67L11.41,171.54L13.04,169.6L14.98,172.11L18.43,170.2L20.35,171.35L21.09,169.64L22.07,170.51L26.53,168.88L29.87,164.04L27.08,163.08L27.14,164.24L23.0,164.69L20.88,166.67L14.59,165.56L13.13,164.25L12.99,164.66L12.38,163.9L12.09,164.23L11.99,163.8L11.75,164.07L9.23,162.8L7.71,161.81L8.75,162.29L7.07,161.14L8.29,160.3L5.19,157.96L9.89,153.79L6.27,155.29L5.21,154.46L4.27,157.14L2.1,156.75L4.27,155.47L2.31,155.51L4.36,152.71L9.19,152.74L9.86,148.88L10.57,150.02L11.54,149.0L19.46,149.12L24.71,150.49L31.26,147.67L31.38,149.58L33.12,149.98L38.07,147.88L36.59,147.4L37.78,144.64L32.52,136.65L32.46,133.2L27.69,133.07L25.62,130.54L26.53,123.61L18.43,121.44L19.36,116.48L28.95,107.12L31.6,107.14L35.05,110.58L47.57,107.7L53.58,98.57L60.36,95.65L65.86,85.29L72.89,82.44L72.42,79.14L81.72,72.55L79.45,71.9L81.21,68.58L79.16,65.31L80.63,63.34L89.97,59.55L86.66,56.71L81.54,56.53L81.83,52.59L77.76,53.41L68.76,49.75L68.27,40.74L65.88,35.25L66.55,33.09L69.03,33.16L69.9,30.89L73.77,29.46L74.83,26.88L70.17,25.73L70.6,22.3L65.96,22.25L62.56,20.08L63.19,18.51L55.75,18.61L55.51,14.31L60.62,11.55L61.77,9.06L71.52,8.75L69.19,6.52L73.72,7.52L81.63,4.56L84.23,6.32L87.2,5.26L90.52,6.11L91.04,8.7L94.4,8.43L97.97,11.97L106.4,15.13L107.87,18.52L114.08,20.1L116.16,22.74Z";
+
+/* ═══════ ROUTE INTELLIGENCE DATABASE (real Indian data) ═══════ */
+const ROUTES={
+'DEL-BOM':{flights:[{al:'IndiGo 6E',dur:'2h 10m',freq:'42/day',cost:'\u20B94.2K-8.5K'},{al:'Air India',dur:'2h 15m',freq:'18/day',cost:'\u20B94.8K-12K'},{al:'Vistara UK',dur:'2h 10m',freq:'14/day',cost:'\u20B95.2K-14K'}],trains:[{nm:'Rajdhani 12952',dur:'15h 35m',dep:'16:55',type:'RAJDHANI'},{nm:'Duronto 12262',dur:'17h 10m',dep:'23:00',type:'DURONTO'},{nm:'August Kranti 12954',dur:'17h 25m',dep:'17:40',type:'SUPERFAST'}],drive:{dist:'1,415 km',dur:'~22h',via:'NH-48'}},
+'DEL-BLR':{flights:[{al:'IndiGo 6E',dur:'2h 45m',freq:'28/day',cost:'\u20B95K-11K'},{al:'Air India',dur:'2h 50m',freq:'10/day',cost:'\u20B95.5K-15K'}],trains:[{nm:'Karnataka Exp 12628',dur:'33h 30m',dep:'21:30',type:'SUPERFAST'},{nm:'Rajdhani 12430',dur:'33h 50m',dep:'20:50',type:'RAJDHANI'}],drive:{dist:'2,150 km',dur:'~33h',via:'NH-44'}},
+'DEL-CCU':{flights:[{al:'IndiGo 6E',dur:'2h 15m',freq:'24/day',cost:'\u20B94K-9K'},{al:'Air India',dur:'2h 20m',freq:'12/day',cost:'\u20B94.5K-12K'}],trains:[{nm:'Rajdhani 12302',dur:'17h',dep:'17:00',type:'RAJDHANI'},{nm:'Sealdah Rajdhani 12314',dur:'17h 30m',dep:'16:30',type:'RAJDHANI'}],drive:{dist:'1,525 km',dur:'~24h',via:'NH-19'}},
+'DEL-MAA':{flights:[{al:'IndiGo 6E',dur:'2h 40m',freq:'20/day',cost:'\u20B94.5K-10K'},{al:'Vistara UK',dur:'2h 35m',freq:'8/day',cost:'\u20B95.5K-14K'}],trains:[{nm:'Tamil Nadu Exp 12622',dur:'33h',dep:'22:30',type:'SUPERFAST'},{nm:'GT Express 12616',dur:'28h 40m',dep:'18:40',type:'SUPERFAST'}],drive:{dist:'2,175 km',dur:'~34h',via:'NH-44'}},
+'DEL-HYD':{flights:[{al:'IndiGo 6E',dur:'2h 10m',freq:'22/day',cost:'\u20B94K-9K'},{al:'Air India',dur:'2h 15m',freq:'8/day',cost:'\u20B95K-13K'}],trains:[{nm:'Telangana Exp 12724',dur:'26h 30m',dep:'06:50',type:'SUPERFAST'},{nm:'Dakshin Exp 12722',dur:'24h',dep:'20:10',type:'SUPERFAST'}],drive:{dist:'1,550 km',dur:'~24h',via:'NH-44'}},
+'DEL-AMD':{flights:[{al:'IndiGo 6E',dur:'1h 50m',freq:'18/day',cost:'\u20B93.5K-7K'},{al:'Air India',dur:'1h 55m',freq:'8/day',cost:'\u20B94K-10K'}],trains:[{nm:'Rajdhani 12958',dur:'13h',dep:'19:55',type:'RAJDHANI'},{nm:'Ashram Exp 12916',dur:'14h 30m',dep:'15:30',type:'SUPERFAST'}],drive:{dist:'940 km',dur:'~14h',via:'NH-48'}},
+'BOM-BLR':{flights:[{al:'IndiGo 6E',dur:'1h 45m',freq:'30/day',cost:'\u20B93.5K-8K'},{al:'Vistara UK',dur:'1h 50m',freq:'10/day',cost:'\u20B94.5K-12K'}],trains:[{nm:'Udyan Exp 11302',dur:'24h',dep:'08:05',type:'EXPRESS'},{nm:'Chalukya Exp 11006',dur:'24h 30m',dep:'21:50',type:'EXPRESS'}],drive:{dist:'980 km',dur:'~16h',via:'NH-48'}},
+'BOM-PNQ':{flights:[{al:'IndiGo 6E',dur:'1h 05m',freq:'8/day',cost:'\u20B93K-6K'}],trains:[{nm:'Deccan Exp 11008',dur:'3h 30m',dep:'07:15',type:'EXPRESS'},{nm:'Shatabdi 12028',dur:'3h 10m',dep:'17:00',type:'SHATABDI'},{nm:'Vande Bharat 22226',dur:'2h 43m',dep:'06:10',type:'VANDE BHARAT'}],drive:{dist:'150 km',dur:'~3h',via:'Mumbai-Pune Expwy'}},
+'BOM-GOI':{flights:[{al:'IndiGo 6E',dur:'1h 15m',freq:'14/day',cost:'\u20B93K-7K'},{al:'Go First',dur:'1h 10m',freq:'4/day',cost:'\u20B92.8K-6K'}],trains:[{nm:'Jan Shatabdi 12052',dur:'11h',dep:'05:25',type:'JAN SHATABDI'},{nm:'Mandovi Exp 10104',dur:'12h',dep:'07:10',type:'EXPRESS'}],drive:{dist:'590 km',dur:'~10h',via:'NH-66'}},
+'BOM-MAA':{flights:[{al:'IndiGo 6E',dur:'2h',freq:'16/day',cost:'\u20B94K-9K'}],trains:[{nm:'Chennai Express 11042',dur:'24h',dep:'14:00',type:'EXPRESS'}],drive:{dist:'1,330 km',dur:'~21h',via:'NH-48/44'}},
+'BOM-HYD':{flights:[{al:'IndiGo 6E',dur:'1h 25m',freq:'18/day',cost:'\u20B93.5K-8K'}],trains:[{nm:'Hussain Sagar 12702',dur:'14h 30m',dep:'21:50',type:'SUPERFAST'}],drive:{dist:'710 km',dur:'~11h',via:'NH-65'}},
+'BLR-MAA':{flights:[{al:'IndiGo 6E',dur:'1h',freq:'16/day',cost:'\u20B92.5K-5K'}],trains:[{nm:'Shatabdi 12028',dur:'5h',dep:'06:00',type:'SHATABDI'},{nm:'Brindavan Exp 12640',dur:'5h 30m',dep:'07:45',type:'EXPRESS'},{nm:'Vande Bharat 20608',dur:'4h 45m',dep:'05:50',type:'VANDE BHARAT'}],drive:{dist:'350 km',dur:'~6h',via:'NH-48'}},
+'BLR-HYD':{flights:[{al:'IndiGo 6E',dur:'1h 20m',freq:'14/day',cost:'\u20B93K-7K'}],trains:[{nm:'Kacheguda Exp 12786',dur:'10h 45m',dep:'18:20',type:'SUPERFAST'}],drive:{dist:'570 km',dur:'~9h',via:'NH-44'}},
+'BLR-COK':{flights:[{al:'IndiGo 6E',dur:'1h 10m',freq:'10/day',cost:'\u20B92.5K-6K'}],trains:[{nm:'Ernakulam Exp 16526',dur:'11h',dep:'20:30',type:'EXPRESS'},{nm:'Kochuveli Exp 16316',dur:'12h',dep:'14:55',type:'EXPRESS'}],drive:{dist:'560 km',dur:'~10h',via:'NH-275'}},
+'MAA-HYD':{flights:[{al:'IndiGo 6E',dur:'1h 15m',freq:'12/day',cost:'\u20B93K-6K'}],trains:[{nm:'Charminar Exp 12760',dur:'13h',dep:'18:50',type:'SUPERFAST'}],drive:{dist:'630 km',dur:'~10h',via:'NH-65'}},
+'CCU-MAA':{flights:[{al:'IndiGo 6E',dur:'2h 30m',freq:'8/day',cost:'\u20B94.5K-10K'}],trains:[{nm:'Coromandel Exp 12842',dur:'26h 30m',dep:'14:50',type:'SUPERFAST'}],drive:{dist:'1,670 km',dur:'~28h',via:'NH-16'}},
+'HYD-CCU':{flights:[{al:'IndiGo 6E',dur:'2h 20m',freq:'6/day',cost:'\u20B94K-9K'}],trains:[{nm:'Falaknuma Exp 12704',dur:'26h',dep:'17:05',type:'SUPERFAST'}],drive:{dist:'1,490 km',dur:'~25h',via:'NH-65/16'}},
+'AMD-BOM':{flights:[{al:'IndiGo 6E',dur:'1h 20m',freq:'12/day',cost:'\u20B93K-6K'}],trains:[{nm:'Shatabdi 12010',dur:'7h',dep:'14:25',type:'SHATABDI'},{nm:'Karnavati Exp 12934',dur:'8h',dep:'23:55',type:'SUPERFAST'}],drive:{dist:'530 km',dur:'~8h',via:'NH-48'}},
+'GOI-BLR':{flights:[{al:'IndiGo 6E',dur:'1h 10m',freq:'6/day',cost:'\u20B93K-6K'}],trains:[{nm:'Vasco Express 17310',dur:'14h',dep:'17:00',type:'EXPRESS'}],drive:{dist:'560 km',dur:'~10h',via:'NH-748/48'}},
+};
+function routeKey(a,b){const k1=a+'-'+b,k2=b+'-'+a;return ROUTES[k1]?k1:ROUTES[k2]?k2:null;}
+
+/* ═══════ STATE ═══════ */
+const S={selected:null,muted:false,cmdCount:0,toolCount:0,history:[],routeMode:null};
 const $=id=>document.getElementById(id);
-let soundOn=true,voiceMuted=false,ws=null,wsReady=false,activeCity=null;
+const SVGNS="http://www.w3.org/2000/svg";
+const el=(t,a={})=>{const e=document.createElementNS(SVGNS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+function now(){return new Date().toLocaleTimeString('en-GB',{hour12:false});}
 
-/* SOUND */
-const sfx=(function(){let ctx=null;function g(){if(!ctx)try{ctx=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}return ctx}function t(f,d,tp,v){if(!soundOn)return;const c=g();if(!c)return;try{const o=c.createOscillator(),gn=c.createGain();o.connect(gn);gn.connect(c.destination);o.frequency.value=f;o.type=tp||'sine';gn.gain.setValueAtTime(v||0.12,c.currentTime);gn.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);o.start();o.stop(c.currentTime+d)}catch(e){}}return{beep:()=>t(880,0.08),alert:()=>{t(660,0.15,'square',0.08);setTimeout(()=>t(550,0.2,'square',0.08),160)},boot:()=>{t(440,0.1);setTimeout(()=>t(660,0.1),120);setTimeout(()=>t(880,0.15),240)},error:()=>t(220,0.3,'sawtooth',0.06),chime:()=>{t(1046,0.15);setTimeout(()=>t(1318,0.15),100);setTimeout(()=>t(1568,0.2),200)},lockon:()=>{t(1200,0.05);setTimeout(()=>t(900,0.08),60);setTimeout(()=>t(1200,0.12),130)}}})();
-
-function hideBoot(){var b=$('boot');if(b)b.classList.add('gone');sfx.boot()}
-
-/* WS */
-function connectWs(){const port=location.port||7777;ws=new WebSocket('ws://'+((location.hostname||'localhost')+':'+port)+'/ws');ws.onopen=()=>{wsReady=true;$('conn-pill').className='pill on';$('conn-text').textContent='Connected';hideBoot()};ws.onmessage=e=>{try{handle(JSON.parse(e.data))}catch(x){}};ws.onclose=()=>{wsReady=false;$('conn-pill').className='pill alert';$('conn-text').textContent='Offline';setTimeout(connectWs,3000)};ws.onerror=()=>ws.close()}
-connectWs();
-
-/* COMMAND BAR + HISTORY */
-const cmdHistory=[];let histIdx=-1;
-function sendCommand(t){if(!t||!wsReady)return;try{ws.send(JSON.stringify({type:'command',text:t}))}catch(e){}cmdHistory.push(t);histIdx=cmdHistory.length;$('cmd-input').value='';sfx.beep()}
-$('cmd-send').onclick=()=>sendCommand($('cmd-input').value.trim());
-$('cmd-input').addEventListener('keydown',e=>{
-  if(e.key==='Enter')sendCommand($('cmd-input').value.trim());
-  else if(e.key==='ArrowUp'){if(histIdx>0){histIdx--;$('cmd-input').value=cmdHistory[histIdx]||'';e.preventDefault()}}
-  else if(e.key==='ArrowDown'){if(histIdx<cmdHistory.length){histIdx++;$('cmd-input').value=cmdHistory[histIdx]||'';e.preventDefault()}}
-});
-document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement!==$('cmd-input')){e.preventDefault();$('cmd-input').focus()}});
-$('sound-btn').onclick=()=>{soundOn=!soundOn;$('sound-btn').textContent=soundOn?'🔊':'🔇'};
-$('mute-btn').onclick=()=>{voiceMuted=!voiceMuted;$('mute-btn').classList.toggle('off',voiceMuted);if(voiceMuted)speechSynthesis.cancel();sendCommand(voiceMuted?'go quiet':'speak again')};
-document.querySelectorAll('.city-chip').forEach(c=>c.addEventListener('click',()=>sendCommand(c.dataset.cmd)));
-
-/* ═══ VOICE — HUMAN-SOUNDING, ZERO COST ═══
-   Scores every voice the browser exposes and picks the most natural one.
-   Edge ships Microsoft "Natural" neural voices (incl. en-IN Neerja/Prabhat) for free.
-   Chrome ships high-quality Google voices. Both beat the robotic default. */
-let bestVoice=null;
-function pickBestVoice(){
-  const vs=speechSynthesis.getVoices();
-  if(!vs.length)return null;
-  const score=v=>{
-    let s=0;const n=v.name.toLowerCase();
-    if(/natural/.test(n))s+=10;                       // Edge neural voices
-    if(/neerja|prabhat|heera|ravi/.test(n))s+=7;      // Indian English neural
-    if(/online/.test(n))s+=4;
-    if(/google/.test(n))s+=5;                         // Chrome's good voices
-    if(/aria|jenny|sonia|libby|guy|ryan/.test(n))s+=4;
-    if(v.lang==='en-IN')s+=5;
-    else if(v.lang&&v.lang.startsWith('en'))s+=2;
-    if(/espeak|robot|compact/.test(n))s-=8;
-    return s;
-  };
-  bestVoice=vs.slice().sort((a,b)=>score(b)-score(a))[0];
-  if(bestVoice)$('m-voice').textContent=bestVoice.name.replace(/Microsoft |Google |Online \(Natural\)|\(Natural\)/g,'').trim().slice(0,18);
-  return bestVoice;
+/* ═══════ AGENT CHOREOGRAPHY ═══════ */
+function setAgent(i,st){
+  const badge=$('agents').querySelectorAll('.badge')[i];
+  if(badge){badge.className='badge '+st;badge.textContent=st;}
 }
-if(window.speechSynthesis){pickBestVoice();speechSynthesis.onvoiceschanged=pickBestVoice;}
-
-/* Strip the stuff that makes TTS sound robotic: emoji, markdown, urls, codes */
-function cleanForSpeech(t){
-  return t
-    .replace(/https?:\/\/\S+/g,'')
-    .replace(/[*_`#>~|]/g,'')
-    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu,'')
-    .replace(/\bAQI\b/g,'air quality index')
-    .replace(/°C/g,' degrees celsius')
-    .replace(/\bkm\/h\b/gi,'kilometres per hour')
-    .replace(/\s{2,}/g,' ')
-    .trim();
-}
-
-/* Speak sentence-by-sentence with natural pacing instead of one flat monotone blob */
-function browserSpeak(t){
-  if(voiceMuted||!window.speechSynthesis)return;
-  speechSynthesis.cancel();
-  const clean=cleanForSpeech(t).slice(0,420);
-  if(!clean)return;
-  const sentences=clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[clean];
-  if(!bestVoice)pickBestVoice();
-  sentences.forEach((s,i)=>{
-    const u=new SpeechSynthesisUtterance(s.trim());
-    if(bestVoice)u.voice=bestVoice;
-    u.rate=1.02;          /* slightly brisk reads more natural than slow-robot */
-    u.pitch=1.0;
-    u.volume=1.0;
-    speechSynthesis.speak(u);   /* queued automatically — tiny gaps between sentences */
+function agentSeq(steps){
+  let delay=0;
+  steps.forEach(([idx,st,ms,cb])=>{
+    setTimeout(()=>{setAgent(idx,st);if(cb)cb();},delay);
+    delay+=ms;
   });
 }
 
-let vT=null;
-function showVoiceBubble(t){$('voice-text').textContent=t.slice(0,200);$('voice').classList.add('show');clearTimeout(vT);vT=setTimeout(()=>$('voice').classList.remove('show'),7000)}
-
-/* FEED */
-function addFeedEvent(tag,msg,type){state.events++;$('feed-count').textContent=state.events+' events';const w=$('feed-items');const e=w.querySelector('.empty');if(e)e.remove();const n=new Date();const ts=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');const d=document.createElement('div');d.className='event '+(type||'info');d.innerHTML='<span class="event-time">'+ts+'</span><span class="event-tag">['+tag+']</span> '+msg.replace(/</g,'&lt;');w.appendChild(d);if(w.children.length>80)w.firstChild.remove();$('feed').scrollTop=$('feed').scrollHeight}
-function showToast(s,m){const d=document.createElement('div');d.className='toast'+(s==='medium'?' medium':'');d.textContent='⚠ '+m;$('toasts').appendChild(d);setTimeout(()=>d.remove(),6000)}
-
-/* WEATHER */
-function renderWeather(d){const f=$('forecast');if(!d||!d.days||!d.days.length){f.innerHTML='<div class="empty">No weather data.</div>';return}f.innerHTML=d.days.slice(0,4).map(x=>{const i=x.conditionCode<=2?'☀':x.conditionCode<=4?'⛅':x.conditionCode<=6?'🌧':x.conditionCode<=7?'⛈':'🌨';const r=x.precipitationProbability||x.maxRainChance||0;const fl=r>80?'<span class="wx-flag danger">HEAVY RAIN '+r+'%</span>':r>50?'<span class="wx-flag warn">RAIN '+r+'%</span>':'<span class="wx-flag ok">CLEAR</span>';const dt=new Date(x.date||x.dateStr);const ds=isNaN(dt)?(x.date||'').slice(5):dt.toLocaleDateString('en-IN',{weekday:'short'});return'<div class="wx-day"><div class="wx-date">'+ds+'</div><div class="wx-icon">'+i+'</div><div class="wx-temps">'+x.maxTempC+'°<span>/'+x.minTempC+'°C</span></div>'+fl+'</div>'}).join('');if(d.location)$('m-dest').textContent=d.location.split(',')[0]}
-
-/* AQI */
-function renderAqi(d){const el=$('aqi');if(!d){el.innerHTML='<div class="empty">No data.</div>';return}const a=d.usAqi||d.aqi||0;const c=d.category||(a<50?'Good':a<100?'Moderate':a<150?'Sensitive':a<200?'Unhealthy':a<300?'Very Unhealthy':'Hazardous');const cl=a<50?'#34d399':a<100?'#86efac':a<150?'#fbbf24':a<200?'#f97316':'#ef4444';el.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:'+cl+';font-family:var(--display);font-size:25px;font-weight:700">'+a+'</span><span style="color:'+cl+';font-size:13px;align-self:flex-end;font-weight:700">'+c+'</span></div><div class="aqi-bar"><div class="aqi-fill" style="width:'+Math.min(100,a/5)+'%;background:'+cl+';color:'+cl+'"></div></div><div class="kv"><span class="k">PM2.5</span><span>'+(d.pm25||0).toFixed(1)+' μg/m³</span></div><div class="kv"><span class="k">PM10</span><span>'+(d.pm10||0).toFixed(1)+' μg/m³</span></div>'}
-
-/* QUAKES */
-function renderQuakes(d){const el=$('seismic');if(!d){el.innerHTML='<div class="empty">No data.</div>';return}if(!d.earthquakes||!d.earthquakes.length){el.innerHTML='<div class="kv"><span class="k">Status</span><span style="color:var(--success);font-weight:700">All Clear ✓</span></div><div class="kv"><span class="k">Checked</span><span>'+(d.totalNearby||0)+' events</span></div>';return}el.innerHTML=d.earthquakes.slice(0,4).map(q=>{const m=parseFloat(q.magnitude||q.mag||0);return'<div class="quake-row"><div class="quake-mag '+(m>=5?'significant':'minor')+'">M'+m.toFixed(1)+'</div><div style="flex:1;color:var(--text)">'+(q.place||'Unknown').slice(0,35)+'</div><div style="color:var(--text-dim);font-size:11px">'+(q.distKm||'?')+'km</div></div>'}).join('')}
-
-/* CITY HIGHLIGHT */
-function highlightCity(c){document.querySelectorAll('.city-pin').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.city-pin').forEach(p=>{if(p.dataset.city.toLowerCase().includes(c.toLowerCase())){p.classList.add('active');activeCity=p.dataset.city}});sfx.lockon()}
-
-/* PIN INTERACTIONS */
-const tooltip=$('city-tooltip');
-document.querySelectorAll('.city-pin').forEach(p=>{
-  p.addEventListener('mouseenter',()=>{tooltip.style.display='block';$('tt-city').textContent=p.dataset.city;$('tt-meta').textContent=p.dataset.iata+' · '+p.dataset.state});
-  p.addEventListener('mousemove',e=>{tooltip.style.left=(e.clientX+16)+'px';tooltip.style.top=(e.clientY-12)+'px'});
-  p.addEventListener('mouseleave',()=>tooltip.style.display='none');
-  p.addEventListener('click',e=>{e.stopPropagation();sendCommand('inspect '+p.dataset.city);p.classList.add('active');sfx.lockon();tooltip.style.display='none';addFeedEvent('MAP','City selected: '+p.dataset.city+' ('+p.dataset.iata+')','info')});
-});
-
-/* CONSTELLATION ANIMATION — pulse random network lines */
-const netLines=document.querySelectorAll('#india-svg g line');
-setInterval(()=>{if(netLines.length===0)return;const l=netLines[Math.floor(Math.random()*netLines.length)];l.setAttribute('stroke','rgba(34,211,238,0.5)');l.setAttribute('stroke-width','1.5');setTimeout(()=>{l.setAttribute('stroke','rgba(34,211,238,0.15)');l.setAttribute('stroke-width','0.8')},600)},1500);
-
-/* EVENT HANDLER */
-function handle(e){
-  switch(e.type){
-    case 'welcome':hideBoot();break;
-    case 'agent_status':{
-      const n=(e.agent||'').toLowerCase();
-      let id='agent-orchestrator';
-      if(n.includes('reroute'))id='agent-rerouter';
-      else if(n.includes('weather')||n.includes('monitor'))id='agent-weather-monitor';
-      const nd=$(id);if(nd){nd.className='agent '+(e.status||'idle');$(id.replace('agent-','state-')).textContent=e.status||'idle'}
-      $('agent-pill').className='pill '+(e.status==='active'?'active':e.status==='alert'?'alert':'');
-      if(e.message)addFeedEvent(e.agent||'AGENT',e.message,e.level||'info');
-      break;
-    }
-    case 'agent_activated':{
-      const a=e.agent||'';
-      if(a.includes('weather')){$('agent-weather-monitor').className='agent active';$('state-weather-monitor').textContent=e.status||'active'}
-      if(a.includes('rerouter')){$('agent-rerouter').className='agent alert';$('state-rerouter').textContent=e.status||'activated'}
-      sfx.alert();break;
-    }
-    case 'log':addFeedEvent(e.agent,e.message,e.level||'info');break;
-    case 'tool_call':
-      state.tools++;$('m-tools').textContent=state.tools;
-      addFeedEvent('TOOL','→ '+e.name,'tool');
-      if(e.name==='fetch_weather'||e.name==='fetch_air_quality'){$('agent-weather-monitor').className='agent active';$('state-weather-monitor').textContent='scanning'}
-      sfx.beep();break;
-    case 'tool_result':
-      addFeedEvent('TOOL',(e.success?'✓':'✗')+' '+e.name,e.success?'success':'alert');
-      if(e.name==='fetch_weather'||e.name==='fetch_air_quality')setTimeout(()=>{$('agent-weather-monitor').className='agent idle';$('state-weather-monitor').textContent='standby'},2000);
-      if(!e.success)sfx.error();break;
-    case 'reply':addFeedEvent('VOYAGER',e.text,'reply');showVoiceBubble(e.text);browserSpeak(e.text);state.cmds++;$('m-cmds').textContent=state.cmds;break;
-    case 'thinking':addFeedEvent('VOYAGER',e.text,'reply');break;
-    case 'speak':showVoiceBubble(e.text);browserSpeak(e.text);break;
-    case 'weather':renderWeather(e.data);if(e.data&&e.data.location){$('m-dest').textContent=e.data.location.split(',')[0];highlightCity(e.data.location.split(',')[0])}break;
-    case 'air_quality':renderAqi(e.data);break;
-    case 'earthquakes':renderQuakes(e.data);break;
-    case 'india_city_highlight':if(e.city)highlightCity(e.city);break;
-    case 'alert':state.alerts++;$('m-alerts').textContent=state.alerts;showToast(e.severity,e.message);sfx.alert();break;
-    case 'ipc_signal':state.signals++;$('m-signals').textContent=state.signals;addFeedEvent('IPC','⚡ Re-Router activated — checking alternate routes','ipc');$('agent-rerouter').className='agent alert';$('state-rerouter').textContent='activated';sfx.alert();break;
-    case 'cycle_end':$('m-duration').textContent=((e.durationMs||0)/1000).toFixed(1)+'s';sfx.chime();$('agent-orchestrator').className='agent idle';$('state-orchestrator').textContent='idle';break;
-    case 'sound':sfx[e.cue]&&sfx[e.cue]();break;
-    case 'lock_on':if(e.label){highlightCity(e.label.split(',')[0]);addFeedEvent('MAP','Locked: '+e.label,'info')}sfx.lockon();break;
-    case 'state':if(e.state&&e.state.destination){$('m-dest').textContent=e.state.destination;highlightCity(e.state.destination)}break;
-    case 'tokens':break;
-  }
+/* ═══════ BUILD MAP ═══════ */
+function buildMap(){
+  const svg=$('map-svg');
+  const grid=el('g');
+  for(let i=-50;i<=420;i+=40)grid.appendChild(el('line',{class:'grid-l',x1:i,y1:-50,x2:i,y2:460}));
+  for(let j=-50;j<=460;j+=40)grid.appendChild(el('line',{class:'grid-l',x1:-70,y1:j,x2:430,y2:j}));
+  svg.appendChild(grid);
+  const defs=el('defs');
+  defs.innerHTML='<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="softglow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="5"/></filter>';
+  svg.appendChild(defs);
+  svg.appendChild(el('path',{d:INDIA_PATH,fill:'rgba(70,150,230,0.10)',filter:'url(#softglow)'}));
+  svg.appendChild(el('path',{d:INDIA_PATH,fill:'rgba(0,255,200,0.04)',stroke:'var(--mapline)','stroke-width':1.4,'stroke-linejoin':'round',filter:'url(#glow)'}));
+  const links=[[0,4],[0,8],[0,9],[8,9],[9,5],[5,4],[5,2],[2,6],[2,3],[3,5],[9,7],[7,2],[1,9],[1,8],[4,3]];
+  const rg=el('g');
+  links.forEach(([a,b])=>{const A=CITIES[a],B=CITIES[b],mx=(A.x+B.x)/2,my=(A.y+B.y)/2-14;rg.appendChild(el('path',{class:'route',d:`M${A.x},${A.y} Q${mx},${my} ${B.x},${B.y}`}));});
+  svg.appendChild(rg);
+  svg.appendChild(el('g',{id:'conn-layer'}));
+  const nodes=el('g',{id:'node-layer'});
+  CITIES.forEach((c,i)=>{
+    const g=el('g',{class:'city-node','data-i':i});
+    const star=el('g',{class:'star'});
+    star.appendChild(el('line',{x1:c.x-6,y1:c.y,x2:c.x+6,y2:c.y}));
+    star.appendChild(el('line',{x1:c.x,y1:c.y-6,x2:c.x,y2:c.y+6}));
+    star.appendChild(el('line',{x1:c.x-4,y1:c.y-4,x2:c.x+4,y2:c.y+4,opacity:0.5}));
+    star.appendChild(el('line',{x1:c.x-4,y1:c.y+4,x2:c.x+4,y2:c.y-4,opacity:0.5}));
+    star.appendChild(el('circle',{cx:c.x,cy:c.y,r:2.2,filter:'url(#glow)'}));
+    g.appendChild(star);
+    const lbl=el('text',{class:'lbl',x:c.side==='l'?c.x-9:c.x+9,y:c.y+2.5,'text-anchor':c.side==='l'?'end':'start'});
+    lbl.textContent=`${c.iata} \u00B7 ${c.name}`;
+    g.appendChild(lbl);
+    g.addEventListener('click',()=>selectCity(i));
+    nodes.appendChild(g);
+  });
+  svg.appendChild(nodes);
 }
+function drawConnections(i){
+  const layer=$('conn-layer');layer.innerHTML='';
+  const A=CITIES[i];
+  CITIES.forEach((B,j)=>{if(j===i)return;const mx=(A.x+B.x)/2,my=(A.y+B.y)/2-12;layer.appendChild(el('path',{class:'conn',d:`M${A.x},${A.y} Q${mx},${my} ${B.x},${B.y}`}));});
+}
+function drawRouteLine(ai,bi){
+  const layer=$('conn-layer');layer.innerHTML='';
+  const A=CITIES[ai],B=CITIES[bi],mx=(A.x+B.x)/2,my=(A.y+B.y)/2-16;
+  const p=el('path',{class:'conn',d:`M${A.x},${A.y} Q${mx},${my} ${B.x},${B.y}`,'stroke-width':'2'});
+  layer.appendChild(p);
+}
+
+/* ═══════ LEFT PANEL ═══════ */
+function buildLeft(){
+  $('agents').innerHTML=AGENTS.map(a=>`<div class="agent"><div><div class="nm">${a.nm}</div><div class="rl">${a.rl}</div></div><span class="badge ${a.st}">${a.st}</span></div>`).join('');
+  $('qi-grid').innerHTML=CITIES.map((c,i)=>`<button class="qi" data-i="${i}">${c.iata}</button>`).join('');
+  $('qi-grid').querySelectorAll('.qi').forEach(b=>b.addEventListener('click',()=>selectCity(+b.dataset.i)));
+}
+function syncQI(){
+  $('qi-grid').querySelectorAll('.qi').forEach(b=>b.classList.toggle('active',+b.dataset.i===S.selected));
+  document.querySelectorAll('.city-node').forEach(n=>n.classList.toggle('active',+n.dataset.i===S.selected));
+}
+function pushHistory(txt){S.history.unshift({txt,t:now()});S.history=S.history.slice(0,5);
+  $('history').innerHTML=S.history.map(h=>`<div class="hist-item"><span class="t">${h.t}</span> ${h.txt}</div>`).join('');}
+function stream(msg,agent){
+  const d=document.createElement('div');d.className='stream-item flash';
+  d.innerHTML=`<span class="t">${now()}</span>${agent?'<span class="ag">['+agent+']</span>':''}${msg}`;
+  const c=$('stream');c.insertBefore(d,c.firstChild);while(c.children.length>8)c.removeChild(c.lastChild);
+}
+
+/* ═══════ APIs ═══════ */
+const WMO={0:['Clear','\u2600'],1:['Mainly clear','\u2600'],2:['Partly cloudy','\u26C5'],3:['Overcast','\u2601'],45:['Fog','\uD83C\uDF2B'],48:['Rime fog','\u2601'],51:['Light drizzle','\uD83C\uDF27'],53:['Drizzle','\uD83C\uDF27'],55:['Heavy drizzle','\uD83C\uDF27'],61:['Light rain','\uD83C\uDF27'],63:['Rain','\uD83C\uDF27'],65:['Heavy rain','\u26C8'],71:['Light snow','\u2744'],73:['Snow','\u2744'],75:['Heavy snow','\u2744'],80:['Showers','\uD83C\uDF26'],81:['Showers','\uD83C\uDF26'],82:['Violent showers','\u26C8'],95:['Thunderstorm','\u26C8'],96:['Storm + hail','\u26C8'],99:['Severe storm','\u26C8']};
+function wmo(c){return WMO[c]||['Unknown','\u2754'];}
+async function fetchWeatherAQI(c){
+  const wUrl=`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code,visibility&hourly=visibility,temperature_2m,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=2`;
+  const aUrl=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${c.lat}&longitude=${c.lon}&current=pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,ozone&hourly=pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,ozone&timezone=auto&past_days=1&forecast_days=0`;
+  const[w,a]=await Promise.all([fetch(wUrl).then(r=>r.json()),fetch(aUrl).then(r=>r.json()).catch(()=>null)]);
+  return{w,a};
+}
+async function fetchSeismic(c){
+  return fetch(`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=3.5&minlatitude=${(c.lat-6).toFixed(1)}&maxlatitude=${(c.lat+6).toFixed(1)}&minlongitude=${(c.lon-6).toFixed(1)}&maxlongitude=${(c.lon+6).toFixed(1)}&orderby=time&limit=3`).then(r=>r.json()).catch(()=>null);
+}
+
+/* ═══════ INDIA NAQI (CPCB) ═══════ */
+const NAQI_CATS=[{lo:0,hi:50,label:'Good',idx:0},{lo:51,hi:100,label:'Satisfactory',idx:1},{lo:101,hi:200,label:'Moderate',idx:2},{lo:201,hi:300,label:'Poor',idx:3},{lo:301,hi:400,label:'Very Poor',idx:4},{lo:401,hi:500,label:'Severe',idx:5}];
+const NAQI_BP={pm2_5:[[0,30],[31,60],[61,90],[91,120],[121,250],[250,380]],pm10:[[0,50],[51,100],[101,250],[251,350],[351,430],[430,510]],no2:[[0,40],[41,80],[81,180],[181,280],[281,400],[400,520]],so2:[[0,40],[41,80],[81,380],[381,800],[801,1600],[1600,2100]],co:[[0,1],[1.1,2],[2.1,10],[10.1,17],[17.1,34],[34,50]],o3:[[0,50],[51,100],[101,168],[169,208],[209,748],[748,1000]]};
+function subIndex(p,conc){const bp=NAQI_BP[p];if(!bp||conc==null||isNaN(conc))return null;for(let i=0;i<bp.length;i++){const[BPlo,BPhi]=bp[i],{lo:Ilo,hi:Ihi}=NAQI_CATS[i];if(conc<=BPhi||i===bp.length-1)return Math.round(((Ihi-Ilo)/(BPhi-BPlo))*(Math.min(conc,BPhi)-BPlo)+Ilo);}return 500;}
+/* Compute 24h average from hourly array (last 24 non-null values) */
+function avg24(arr){if(!arr)return null;const vals=arr.filter(v=>v!=null).slice(-24);return vals.length>=6?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
+function calcNAQI(aqData){
+  if(!aqData)return{naqi:null,dominant:null,avgs:{}};
+  const hr=aqData.hourly;const cur=aqData.current;
+  /* Prefer 24h averages (CPCB standard), fall back to current */
+  const avgs={
+    pm2_5:  avg24(hr?.pm2_5)  ?? cur?.pm2_5,
+    pm10:   avg24(hr?.pm10)   ?? cur?.pm10,
+    no2:    avg24(hr?.nitrogen_dioxide) ?? cur?.nitrogen_dioxide,
+    so2:    avg24(hr?.sulphur_dioxide)  ?? cur?.sulphur_dioxide,
+    co:     avg24(hr?.carbon_monoxide)!=null ? avg24(hr.carbon_monoxide)/1000 : (cur?.carbon_monoxide!=null?cur.carbon_monoxide/1000:null),
+    o3:     avg24(hr?.ozone)   ?? cur?.ozone,
+  };
+  const pollutantNames={pm2_5:'PM2.5',pm10:'PM10',no2:'NO\u2082',so2:'SO\u2082',co:'CO',o3:'O\u2083'};
+  let maxSub=0,dominant=null;
+  for(const key in avgs){
+    const si=subIndex(key,avgs[key]);
+    if(si!=null&&si>maxSub){maxSub=si;dominant=pollutantNames[key]||key;}
+  }
+  return{naqi:maxSub||null,dominant,avgs};
+}
+function naqiLabel(v){if(v==null)return['Unknown',0];for(const c of NAQI_CATS)if(v<=c.hi)return[c.label,c.idx];return['Severe',5];}
+
+/* ═══════ DISRUPTION ENGINE — weather-based predictions ═══════ */
+function analyzeDisruptions(c, wData){
+  const alerts=[];
+  if(!wData||!wData.current)return alerts;
+  const cur=wData.current;
+  const temp=cur.temperature_2m, hum=cur.relative_humidity_2m, wind=cur.wind_speed_10m, gusts=cur.wind_gusts_10m, code=cur.weather_code, vis=cur.visibility;
+  // Fog risk (especially Delhi, North India)
+  if(vis!=null && vis<2000) alerts.push({level:'crit',tag:'FOG ALERT',msg:`Visibility ${vis}m \u2014 airport ops impacted, expect 2-4h flight delays`});
+  else if((hum>85 && temp<15) || (vis!=null && vis<5000)) alerts.push({level:'warn',tag:'FOG RISK',msg:`High humidity ${hum}%, low temp \u2014 morning fog likely, 1-2h flight delays possible`});
+  // Monsoon / heavy rain
+  if([65,82,95,96,99].includes(code)) alerts.push({level:'crit',tag:'HEAVY RAIN',msg:`${wmo(code)[0]} \u2014 waterlogging risk, rail delays expected, flights may divert`});
+  else if([61,63,80,81].includes(code)) alerts.push({level:'warn',tag:'RAIN ADVISORY',msg:`${wmo(code)[0]} \u2014 monitor for escalation, carry rain gear`});
+  // Wind / cyclone
+  if(gusts>60) alerts.push({level:'crit',tag:'HIGH WIND',msg:`Gusts ${Math.round(gusts)} km/h \u2014 possible cyclonic activity, flights grounded`});
+  else if(wind>40||gusts>45) alerts.push({level:'warn',tag:'WIND ADVISORY',msg:`Wind ${Math.round(wind)} km/h, gusts ${Math.round(gusts)} \u2014 turbulence on approach`});
+  // Heat
+  if(temp>44) alerts.push({level:'crit',tag:'EXTREME HEAT',msg:`${Math.round(temp)}\u00B0C \u2014 runway restrictions possible, health advisory`});
+  else if(temp>40) alerts.push({level:'warn',tag:'HEAT ADVISORY',msg:`${Math.round(temp)}\u00B0C \u2014 carry water, avoid midday outdoor exposure`});
+  // Tomorrow check (hourly data)
+  if(wData.hourly){
+    const nextHrs=wData.hourly.precipitation_probability?.slice(0,24)||[];
+    const maxRain=Math.max(...nextHrs.filter(v=>v!=null));
+    if(maxRain>75 && alerts.length===0) alerts.push({level:'warn',tag:'RAIN FORECAST',msg:`${maxRain}% precipitation chance in next 24h \u2014 plan accordingly`});
+    const nextVis=wData.hourly.visibility?.slice(0,12)||[];
+    const minVis=Math.min(...nextVis.filter(v=>v!=null));
+    if(minVis<1000 && !alerts.some(a=>a.tag.includes('FOG'))) alerts.push({level:'crit',tag:'FOG FORECAST',msg:`Visibility dropping to ${minVis}m in coming hours \u2014 expect severe delays`});
+  }
+  if(!alerts.length) alerts.push({level:'ok',tag:'ALL CLEAR',msg:'No disruptions detected \u2014 normal operations expected'});
+  return alerts;
+}
+
+/* ═══════ RENDER RIGHT PANEL ═══════ */
+function renderForecast(c,w){
+  if(!w||!w.current){$('forecast').innerHTML='<div class="empty">No data</div>';return;}
+  const cur=w.current,[desc,icon]=wmo(cur.weather_code),mx=w.daily?.temperature_2m_max?.[0],mn=w.daily?.temperature_2m_min?.[0];
+  $('forecast').innerHTML=`<div class="fc"><span class="temp">${Math.round(cur.temperature_2m)}&deg;</span><span class="icon">${icon}</span></div>
+    <div class="fc-detail">${desc} &middot; <span>${c.name}</span><br>HI <span>${mx!=null?Math.round(mx):'--'}&deg;</span> / LO <span>${mn!=null?Math.round(mn):'--'}&deg;</span><br>HUM <span>${cur.relative_humidity_2m}%</span> &middot; WIND <span>${Math.round(cur.wind_speed_10m)} km/h</span>${cur.visibility!=null?' &middot; VIS <span>'+(cur.visibility>=1000?(cur.visibility/1000).toFixed(1)+'km':cur.visibility+'m')+'</span>':''}</div>`;
+}
+function renderAQI(a){
+  const{naqi:v,dominant,avgs}=calcNAQI(a);if(v==null){$('aqi').innerHTML='<div class="empty">No data</div>';return;}
+  const[lab,idx]=naqiLabel(v),bars=[0,1,2,3,4,5].map(i=>`<div class="${i<=idx?'on'+idx:''}"></div>`).join('');
+  $('aqi').innerHTML=`<div class="aqi-row"><span class="n">${v}</span><span class="l">${lab}</span></div><div class="aqi-bar">${bars}</div><div class="aqi-stops"><span>Good</span><span>Sat</span><span>Mod</span><span>Poor</span><span>V.Poor</span><span>Severe</span></div><div class="fc-detail" style="margin-top:6px">Dominant: <span>${dominant||'--'}</span> &middot; 24h avg<br>PM2.5 <span>${avgs.pm2_5!=null?avgs.pm2_5.toFixed(1):'--'}</span> &middot; PM10 <span>${avgs.pm10!=null?avgs.pm10.toFixed(1):'--'}</span> &micro;g/m&sup3;<br>NO\u2082 <span>${avgs.no2!=null?avgs.no2.toFixed(0):'--'}</span> &middot; SO\u2082 <span>${avgs.so2!=null?avgs.so2.toFixed(0):'--'}</span> &middot; O\u2083 <span>${avgs.o3!=null?avgs.o3.toFixed(0):'--'}</span></div>`;
+}
+function renderDisruptions(alerts){
+  $('disruptions').innerHTML=alerts.map(a=>`<div class="disr ${a.level}"><div class="tag">${a.tag}</div>${a.msg}</div>`).join('');
+}
+function renderSeismic(s){
+  const feats=s?.features||[];
+  if(!feats.length){$('seismic').innerHTML='<div class="seis"><span class="dot green"></span>No seismic activity (30d)</div>';return;}
+  const top=feats[0].properties,mag=top.mag,col=mag>=5?'var(--danger)':mag>=4?'var(--warn)':'var(--primary)';
+  $('seismic').innerHTML=`<div class="seis"><span class="dot" style="background:${col};box-shadow:0 0 8px ${col}"></span>M${mag.toFixed(1)} detected &middot; ${feats.length} event${feats.length>1?'s':''}</div><div class="fc-detail" style="margin-top:4px">${(top.place||'').slice(0,42)}</div>`;
+}
+function renderTopRoutes(c){
+  const fromIata=c.iata;
+  const pairs=CITIES.filter(x=>x.iata!==fromIata).slice(0,4);
+  let html='';
+  pairs.forEach(dest=>{
+    const k=routeKey(fromIata,dest.iata);if(!k)return;
+    const r=ROUTES[k]; if(!r)return;
+    const fl=r.flights?.[0], tr=r.trains?.[0];
+    html+=`<div class="rt"><div class="rt-head"><span class="rt-name">${fromIata}\u2192${dest.iata}</span></div><div class="rt-info">`;
+    if(fl) html+=`\u2708 ${fl.al} <span>${fl.dur}</span> ${fl.cost}<br>`;
+    if(tr) html+=`\uD83D\uDE86 ${tr.nm} <span>${tr.dur}</span> dep ${tr.dep}`;
+    html+=`</div></div>`;
+  });
+  $('routes-head').textContent='\u25A0 ROUTES FROM '+fromIata;
+  $('routes').innerHTML=html||'<div class="empty">No routes indexed</div>';
+}
+function renderRouteDetail(ai,bi){
+  const A=CITIES[ai],B=CITIES[bi];
+  const k=routeKey(A.iata,B.iata);
+  if(!k){$('routes').innerHTML='<div class="empty">No route data for '+A.iata+'\u2192'+B.iata+'</div>';return;}
+  const r=ROUTES[k]; let html='';
+  $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata+' CORRIDOR';
+  if(r.flights){r.flights.forEach(f=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.al}</span><span class="rt-type flight">FLIGHT</span></div><div class="rt-info">Duration <span>${f.dur}</span> &middot; Frequency <span>${f.freq}</span><br>Fare range <span>${f.cost}</span></div></div>`;});}
+  if(r.trains){r.trains.forEach(t=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE86 ${t.nm}</span><span class="rt-type train">${t.type}</span></div><div class="rt-info">Duration <span>${t.dur}</span> &middot; Departs <span>${t.dep}</span></div></div>`;});}
+  if(r.drive){html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE97 Drive</span><span class="rt-type drive">ROAD</span></div><div class="rt-info">Distance <span>${r.drive.dist}</span> &middot; Duration <span>${r.drive.dur}</span><br>Via <span>${r.drive.via}</span></div></div>`;}
+  $('routes').innerHTML=html;
+}
+
+/* ═══════ VOICE ═══════ */
+let VOICES=[];
+function loadVoices(){VOICES=window.speechSynthesis?.getVoices()||[];}
+if('speechSynthesis' in window){loadVoices();window.speechSynthesis.onvoiceschanged=loadVoices;}
+function speak(text){
+  if(S.muted||!('speechSynthesis' in window))return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  const v=VOICES.find(v=>v.name.includes('Google')&&v.lang==='en-IN')||VOICES.find(v=>v.lang&&v.lang.startsWith('en-IN'))||VOICES.find(v=>v.name.includes('Google UK English Female'))||VOICES.find(v=>v.name.includes('Female'))||VOICES.find(v=>v.lang&&v.lang.startsWith('en'))||VOICES[0];
+  if(v)u.voice=v;u.rate=0.9;u.pitch=1.0;u.volume=1.0;window.speechSynthesis.speak(u);
+}
+function showOverlay(t){const o=$('city-overlay');o.textContent=t;o.classList.add('show');clearTimeout(o._t);o._t=setTimeout(()=>o.classList.remove('show'),2500);}
+function toggleMute(){S.muted=!S.muted;$('mute-btn').innerHTML=S.muted?'&#128263;':'&#128266;';if(S.muted)window.speechSynthesis?.cancel();stream(S.muted?'Voice muted':'Voice enabled');}
+
+/* ═══════ SELECT CITY — full agent choreography ═══════ */
+async function selectCity(i){
+  if(S.selected===i){S.selected=null;syncQI();$('conn-layer').innerHTML='';
+    $('forecast').innerHTML='<div class="empty">Select a node</div>';$('aqi').innerHTML='<div class="empty">&mdash;</div>';
+    $('disruptions').innerHTML='<div class="empty">Awaiting scan</div>';$('routes').innerHTML='<div class="empty">Select a node</div>';
+    $('routes-head').textContent='\u25A0 ROUTES';$('seismic').innerHTML='<div class="seis"><span class="dot green"></span>Monitoring</div>';
+    stream('Node deselected');AGENTS.forEach((_,j)=>setAgent(j,AGENTS[j].st));return;}
+  const c=CITIES[i];S.selected=i;S.routeMode=null;syncQI();drawConnections(i);
+  showOverlay(`${c.iata} \u00B7 ${c.name}`);pushHistory(`inspect ${c.name.toLowerCase()}`);
+  S.cmdCount++;$('tel-cmd').textContent=S.cmdCount;
+  // Agent choreography — sequential activation
+  stream(`Inspecting ${c.name} (${c.iata})`,'ORCH');
+  setAgent(0,'active');
+  setTimeout(()=>{setAgent(0,'idle');setAgent(1,'active');stream('Scanning weather + AQI...','WTHR');},300);
+  $('forecast').innerHTML='<div class="empty">Scanning\u2026</div>';$('aqi').innerHTML='<div class="empty">Scanning\u2026</div>';
+  try{
+    const{w,a}=await fetchWeatherAQI(c);
+    S.toolCount+=2;$('tel-tool').textContent=S.toolCount;
+    renderForecast(c,w);renderAQI(a);
+    const temp=w?.current?Math.round(w.current.temperature_2m):null;
+    const[desc]=w?.current?wmo(w.current.weather_code):['conditions'];
+    const{naqi:aqv}=calcNAQI(a);const[alab]=aqv!=null?naqiLabel(aqv):['unknown'];
+    stream(`${temp!=null?temp+'\u00B0':'--'}, ${desc}, NAQI ${aqv??'--'}`,`WTHR`);
+    setAgent(1,'idle');
+    // Disruption analysis
+    setTimeout(()=>{
+      setAgent(2,'active');stream('Analyzing disruptions...','REROUTE');
+      const alerts=analyzeDisruptions(c,w);
+      renderDisruptions(alerts);
+      const worstLevel=alerts.find(a=>a.level==='crit')?'crit':alerts.find(a=>a.level==='warn')?'warn':'ok';
+      stream(worstLevel==='ok'?'All clear \u2014 no disruptions':`\u26A0 ${alerts.filter(a=>a.level!=='ok').length} disruption(s) detected`,'REROUTE');
+      setAgent(2,worstLevel==='ok'?'idle':'standby');
+      S.toolCount++;$('tel-tool').textContent=S.toolCount;
+    },600);
+    // Routes
+    setTimeout(()=>{
+      setAgent(3,'active');stream('Loading routes from '+c.iata+'...','PLAN');
+      renderTopRoutes(c);setAgent(3,'idle');setAgent(4,'idle');
+      S.toolCount++;$('tel-tool').textContent=S.toolCount;
+    },900);
+    // Voice summary
+    if(temp!=null){
+      const worstAlert=analyzeDisruptions(c,w).find(a=>a.level!=='ok');
+      let speech=`${c.name} is showing ${temp} degrees with ${desc.toLowerCase()}, Air quality index is ${aqv??'unavailable'}, ${alab.toLowerCase()}.`;
+      if(worstAlert) speech+=` Warning: ${worstAlert.tag.toLowerCase()} detected.`;
+      speak(speech);
+    }
+  }catch(e){
+    $('forecast').innerHTML='<div class="empty">Feed unavailable</div>';
+    $('aqi').innerHTML='<div class="empty">No data</div>';
+    setAgent(1,'error');stream('Weather feed error','WTHR');
+  }
+  fetchSeismic(c).then(s=>{renderSeismic(s);S.toolCount++;$('tel-tool').textContent=S.toolCount;}).catch(()=>{});
+}
+
+/* ═══════ ROUTE COMMAND ═══════ */
+async function routeCommand(fromStr,toStr){
+  const findCity=s=>{s=s.trim().toLowerCase();return CITIES.findIndex(c=>c.name.toLowerCase()===s||c.iata.toLowerCase()===s);};
+  const ai=findCity(fromStr),bi=findCity(toStr);
+  if(ai<0||bi<0){stream('Unknown city \u2014 use name or IATA code');return;}
+  if(ai===bi){stream('Same city \u2014 specify two different cities');return;}
+  const A=CITIES[ai],B=CITIES[bi];
+  S.routeMode={from:ai,to:bi};S.selected=null;syncQI();
+  showOverlay(`${A.iata} \u2192 ${B.iata}`);
+  drawRouteLine(ai,bi);pushHistory(`route ${A.iata.toLowerCase()} ${B.iata.toLowerCase()}`);
+  S.cmdCount++;$('tel-cmd').textContent=S.cmdCount;
+  stream(`Route query: ${A.name} \u2192 ${B.name}`,'ORCH');
+  setAgent(0,'active');
+  setTimeout(()=>{setAgent(0,'idle');setAgent(3,'active');stream('Computing route options...','PLAN');},200);
+  setTimeout(()=>{renderRouteDetail(ai,bi);setAgent(3,'idle');S.toolCount++;$('tel-tool').textContent=S.toolCount;stream(`${ROUTES[routeKey(A.iata,B.iata)]?'Routes loaded':'No route data'}`,'PLAN');},500);
+  // Fetch disruptions for both endpoints
+  setTimeout(async()=>{
+    setAgent(2,'active');stream('Checking corridor disruptions...','REROUTE');
+    try{
+      const[dA,dB]=await Promise.all([fetchWeatherAQI(A),fetchWeatherAQI(B)]);
+      S.toolCount+=2;$('tel-tool').textContent=S.toolCount;
+      renderForecast(A,dA.w);renderAQI(dA.a);
+      const alertsA=analyzeDisruptions(A,dA.w),alertsB=analyzeDisruptions(B,dB.w);
+      const allAlerts=[...alertsA.filter(a=>a.level!=='ok').map(a=>({...a,tag:A.iata+' '+a.tag})),...alertsB.filter(a=>a.level!=='ok').map(a=>({...a,tag:B.iata+' '+a.tag}))];
+      if(!allAlerts.length)allAlerts.push({level:'ok',tag:'CORRIDOR CLEAR',msg:`No disruptions on ${A.iata}\u2192${B.iata} corridor`});
+      renderDisruptions(allAlerts);
+      stream(allAlerts[0].level==='ok'?'Corridor clear':allAlerts.length+' disruption(s) on corridor','REROUTE');
+      setAgent(2,allAlerts.some(a=>a.level!=='ok')?'standby':'idle');
+      const temp=dA.w?.current?Math.round(dA.w.current.temperature_2m):null;
+      const[desc]=dA.w?.current?wmo(dA.w.current.weather_code):[''];
+      speak(`Route from ${A.name} to ${B.name}. ${A.name} is ${temp??''} degrees, ${desc.toLowerCase()}. ${allAlerts[0].level==='ok'?'No disruptions on this corridor.':'Warning, '+allAlerts.filter(a=>a.level!=='ok').length+' disruptions detected.'}`);
+    }catch(e){setAgent(2,'error');stream('Corridor scan failed','REROUTE');}
+  },700);
+}
+
+/* ═══════ DELAYS COMMAND ═══════ */
+async function delaysCommand(cityStr){
+  const s=cityStr.trim().toLowerCase();
+  const ci=CITIES.findIndex(c=>c.name.toLowerCase()===s||c.iata.toLowerCase()===s);
+  if(ci<0){stream('Unknown city');return;}
+  await selectCity(ci);
+}
+
+/* ═══════ COMMAND BAR ═══════ */
+function runCommand(raw){
+  const cmd=raw.trim().toLowerCase();if(!cmd)return;
+  $('cmd-input').value='';
+  // route X Y
+  const routeMatch=cmd.match(/^route\s+(\S+)\s+(\S+)/);
+  if(routeMatch){routeCommand(routeMatch[1],routeMatch[2]);return;}
+  // delays X
+  const delayMatch=cmd.match(/^delays?\s+(\S+)/);
+  if(delayMatch){delaysCommand(delayMatch[1]);return;}
+  // scan (all-city overview)
+  if(cmd==='scan'||cmd==='status'){
+    S.cmdCount++;$('tel-cmd').textContent=S.cmdCount;
+    stream('Initiating full sector scan...','ORCH');setAgent(0,'active');setAgent(1,'active');
+    pushHistory('scan');
+    $('disruptions').innerHTML='<div class="empty">Scanning all nodes\u2026</div>';
+    Promise.all(CITIES.map(c=>fetchWeatherAQI(c).then(d=>({c,d})).catch(()=>({c,d:null})))).then(results=>{
+      S.toolCount+=10;$('tel-tool').textContent=S.toolCount;
+      let html='';
+      results.forEach(({c,d})=>{
+        const alerts=d?analyzeDisruptions(c,d.w):[{level:'warn',tag:'NO DATA',msg:'Feed unavailable'}];
+        const worst=alerts.find(a=>a.level==='crit')?'crit':alerts.find(a=>a.level==='warn')?'warn':'ok';
+        const temp=d?.w?.current?Math.round(d.w.current.temperature_2m)+'°':'--';
+        html+=`<div class="disr ${worst}"><div class="tag">${c.iata} &middot; ${temp}</div>${alerts[0].tag}: ${alerts[0].msg.slice(0,60)}</div>`;
+      });
+      $('disruptions').innerHTML=html;
+      $('routes-head').textContent='\u25A0 ROUTES';
+      $('routes').innerHTML='<div class="empty">Use route [city] [city]</div>';
+      stream('Scan complete \u2014 10 nodes checked','WTHR');
+      setAgent(0,'idle');setAgent(1,'idle');
+    });
+    return;
+  }
+  if(cmd==='help'){
+    stream('Commands: inspect [city], route [A] [B], delays [city], scan, mute, clear');pushHistory('help');return;
+  }
+  if(cmd==='mute'){toggleMute();return;}
+  if(cmd==='clear'){if(S.selected!=null)selectCity(S.selected);stream('Cleared');return;}
+  // Default: try city inspect
+  const found=CITIES.findIndex(c=>cmd.includes(c.name.toLowerCase())||cmd.includes(c.iata.toLowerCase()));
+  if(found>=0){selectCity(found);return;}
+  stream(`Unknown: "${raw.trim()}" \u2014 type help for commands`);
+}
+function abort(){window.speechSynthesis?.cancel();$('conn-layer').innerHTML='';S.selected=null;S.routeMode=null;syncQI();AGENTS.forEach((_,i)=>setAgent(i,AGENTS[i].st));stream('\u25A0 ABORT \u2014 all agents reset');}
+
+/* ═══════ INIT ═══════ */
+function init(){
+  buildMap();buildLeft();
+  stream('VOYAGER online \u2014 5 agents linked');stream('Monitoring 10 Indian sectors');
+  $('cmd-exec').addEventListener('click',()=>runCommand($('cmd-input').value));
+  $('cmd-input').addEventListener('keydown',e=>{if(e.key==='Enter')runCommand($('cmd-input').value);});
+  $('cmd-stop').addEventListener('click',abort);$('hdr-stop').addEventListener('click',abort);
+  $('mute-btn').addEventListener('click',toggleMute);
+  document.addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement!==$('cmd-input')&&!$('notepad').contains(document.activeElement)){e.preventDefault();$('cmd-input').focus();}});
+}
+init();
 </script>
 </body>
 </html>

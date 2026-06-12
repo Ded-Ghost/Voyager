@@ -76,11 +76,18 @@
       "outputTokens": 185,
       "cacheReadTokens": 0,
       "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T14:12:06.399Z",
+      "inputTokens": 3028,
+      "outputTokens": 106,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
     }
   ],
   "totals": {
-    "input": 44251,
-    "output": 2774,
+    "input": 47279,
+    "output": 2880,
     "cacheRead": 0,
     "cacheCreate": 0
   }
