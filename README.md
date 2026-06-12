@@ -35,13 +35,13 @@ git clone <repo>
 cd voyager-agents
 npm install
 
-# 2. Get your FREE Gemini API key
-# Visit: https://aistudio.google.com/apikey
-# Copy the key
+# 2. Get your FREE OpenRouter API key (no card needed)
+# Visit: https://openrouter.ai/keys
+# Copy the key (starts with sk-or-...)
 
 # 3. Configure
 cp .env.example .env
-# Edit .env → paste your GEMINI_API_KEY
+# Edit .env → paste your OPENROUTER_API_KEY
 
 # 4. Launch
 npm start
@@ -50,7 +50,7 @@ npm start
 
 ## AI API — Zero Cost
 
-**Google Gemini 2.0 Flash** (recommended, primary):
+**OpenRouter free models** (recommended, primary):
 - Completely FREE tier — no credit card needed
 - 15 RPM, 1M tokens/day free
 - Excellent tool-use / function-calling support
@@ -79,7 +79,7 @@ events in Goa this weekend
 
 ## Tech Stack
 
-- **AI**: Google Gemini 2.0 Flash (free) / Groq LLaMA (fallback)
+- **AI**: OpenRouter free models (LLaMA 3.3 70B / Gemini Flash / Mistral) with Groq fallback
 - **Weather**: Open-Meteo (free, no key) + wttr.in fallback
 - **AQI**: Open-Meteo Air Quality API (free)
 - **Seismic**: USGS Earthquake API (free)

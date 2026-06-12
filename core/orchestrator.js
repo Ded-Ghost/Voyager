@@ -15,25 +15,121 @@ const { checkEarthquakes }  = require('../tools/disasters');
 const { sendNotification }  = require('../tools/notifications');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// API SETUP — Gemini Free Tier (primary) with Groq fallback
+// API SETUP — OpenRouter (primary) with Groq fallback
 // ─────────────────────────────────────────────────────────────────────────────
 // Sanitize keys: people often paste with quotes, spaces, or trailing newlines
 function cleanKey(k) {
   return (k || '').trim().replace(/^["']|["']$/g, '').replace(/\s+/g, '');
 }
-const GEMINI_KEY  = cleanKey(process.env.GEMINI_API_KEY);
-const GROQ_KEY    = cleanKey(process.env.GROQ_API_KEY);
-const GROQ_MODEL  = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const OPENROUTER_KEY = cleanKey(process.env.OPENROUTER_API_KEY);
+const GROQ_KEY       = cleanKey(process.env.GROQ_API_KEY);
+const GROQ_MODEL     = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
-// Model fallback chain — availability changes over time, try each until one works.
-// Override with GEMINI_MODEL in .env to pin a specific one.
-const GEMINI_MODELS = process.env.GEMINI_MODEL
-  ? [process.env.GEMINI_MODEL.trim()]
-  : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'];
-let geminiModelIdx = 0;   // remembers which model worked, so we don't re-probe every call
+// Model selection — OpenRouter's free-tier lineup rotates constantly (models get
+// pulled to paid-only or replaced within days), so hardcoding model IDs is fragile.
+// Strategy:
+//  - If OPENROUTER_MODEL is pinned in .env, use ONLY that (no discovery).
+//  - Otherwise, query OpenRouter's /models endpoint at runtime, filter for models
+//    that are currently FREE *and* advertise tool/function-calling support, and
+//    try them in priority order. Cached for 15 min, refreshed early on failure.
+const STATIC_FALLBACK_MODELS = [
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'meta-llama/llama-3.1-70b-instruct:free',
+  'google/gemini-2.0-flash-exp:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'qwen/qwen-2.5-72b-instruct:free',
+  'google/gemma-3-27b-it:free',
+];
+// Rough "known good" ordering — models earlier in this list are preferred when
+// multiple free+tool-capable options are discovered.
+const MODEL_PRIORITY = [
+  /llama-3\.3-70b/i, /llama-3\.1-70b/i, /gemini-2\.0-flash/i, /gemini.*flash/i,
+  /mistral-small/i, /qwen-2\.5-72b/i, /deepseek/i, /gemma/i,
+];
 
-function geminiKeyMissing() {
-  return !GEMINI_KEY || GEMINI_KEY === 'YOUR_GEMINI_API_KEY_HERE';
+let modelChainCache  = null;   // array of model ids, most-recently-successful first
+let modelChainAt     = 0;
+let modelChainStale  = false;  // set true after a full-chain failure → refetch next time
+const MODEL_CACHE_TTL = 15 * 60 * 1000;
+
+async function fetchFreeToolModels() {
+  const res = await fetch('https://openrouter.ai/api/v1/models', {
+    headers: { 'Authorization': `Bearer ${OPENROUTER_KEY}` },
+  });
+  if (!res.ok) throw new Error(`models endpoint HTTP ${res.status}`);
+  const data = await res.json();
+  const free = (data.data || []).filter(m => {
+    if (!m.id || !m.id.endsWith(':free')) return false;
+    const sp = m.supported_parameters || [];
+    return sp.includes('tools');
+  });
+  free.sort((a, b) => {
+    const score = id => {
+      for (let i = 0; i < MODEL_PRIORITY.length; i++) if (MODEL_PRIORITY[i].test(id)) return i;
+      return MODEL_PRIORITY.length;
+    };
+    return score(a.id) - score(b.id);
+  });
+  return free.map(m => m.id);
+}
+
+async function getModelChain() {
+  if (process.env.OPENROUTER_MODEL) return [process.env.OPENROUTER_MODEL.trim()];
+
+  const now = Date.now();
+  if (modelChainCache && !modelChainStale && (now - modelChainAt) < MODEL_CACHE_TTL) {
+    return modelChainCache;
+  }
+  try {
+    const ids = await fetchFreeToolModels();
+    if (ids.length) {
+      modelChainCache = ids.slice(0, 8);
+      modelChainAt    = now;
+      modelChainStale = false;
+      display.log('API', `OpenRouter: ${ids.length} free tool-capable models available — trying top ${modelChainCache.length}`, 'info');
+      return modelChainCache;
+    }
+    throw new Error('no free tool-capable models returned');
+  } catch (e) {
+    display.log('API', `Could not refresh OpenRouter free-model list (${e.message}) — using static fallback list`, 'warning');
+    if (modelChainCache) return modelChainCache; // stale cache beats nothing
+    return STATIC_FALLBACK_MODELS;
+  }
+}
+
+function openrouterKeyMissing() {
+  return !OPENROUTER_KEY || OPENROUTER_KEY === 'YOUR_OPENROUTER_API_KEY_HERE';
+}
+
+// A stray/placeholder GROQ_API_KEY (left in .env or inherited from shell env)
+// must never silently swallow a real OpenRouter error.
+function groqKeyUsable() {
+  if (!GROQ_KEY) return false;
+  if (/^(YOUR_|REPLACE_|<|xxxx)/i.test(GROQ_KEY)) return false;
+  if (GROQ_KEY.length < 20) return false; // real Groq keys are long (gsk_... ~56 chars)
+  return true;
+}
+
+function maskedGroqKey() {
+  if (!GROQ_KEY) return '(not set)';
+  return GROQ_KEY.length > 10 ? `${GROQ_KEY.slice(0,5)}...${GROQ_KEY.slice(-4)} (${GROQ_KEY.length} chars)` : '(too short)';
+}
+
+function maskedOpenRouterKey() {
+  if (!OPENROUTER_KEY) return '(not set)';
+  return OPENROUTER_KEY.length > 10 ? `${OPENROUTER_KEY.slice(0,7)}...${OPENROUTER_KEY.slice(-4)} (${OPENROUTER_KEY.length} chars)` : '(too short)';
+}
+
+// Dumped into error messages so a misconfigured env is never a silent mystery —
+// shows exactly what THIS running process sees, which folder it's running from,
+// and whether a .env file was actually found there.
+function envDiagnostics() {
+  const fs   = require('fs');
+  const path = require('path');
+  const envPath = path.join(process.cwd(), '.env');
+  const envFound = fs.existsSync(envPath);
+  return `[cwd=${process.cwd()} | .env found=${envFound} (${envPath}) | ` +
+         `OPENROUTER_API_KEY=${maskedOpenRouterKey()} | GROQ_API_KEY=${maskedGroqKey()}]`;
 }
 
 const conversationHistory = [];
@@ -41,143 +137,89 @@ const MAX_HISTORY = 20;
 let isProcessing = false;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GEMINI API CALL (free tier via REST)
+// OPENROUTER API CALL — OpenAI-compatible chat completions with tool calling
 // ─────────────────────────────────────────────────────────────────────────────
-async function callGemini(messages, tools) {
-  if (geminiKeyMissing()) {
-    throw new Error('GEMINI_API_KEY not set. Get a free key at https://aistudio.google.com/apikey');
+async function callOpenRouter(messages, tools) {
+  if (openrouterKeyMissing()) {
+    throw new Error('OPENROUTER_API_KEY not set. Get a free key at https://openrouter.ai/keys');
   }
 
-  // Convert OpenAI-style messages to Gemini format
-  const systemMsg = messages.find(m => m.role === 'system');
-  const chatMsgs  = messages.filter(m => m.role !== 'system');
+  const chain = await getModelChain();
+  const attempts = []; // human-readable per-model failure reasons, for debugging
 
-  const contents = chatMsgs.map(m => {
-    if (m.role === 'tool') {
-      return {
-        role: 'user',
-        parts: [{ text: `Tool result: ${m.content}` }]
-      };
-    }
-    if (m.role === 'assistant') {
-      const parts = [];
-      if (m.content) parts.push({ text: m.content });
-      if (m.tool_calls) {
-        m.tool_calls.forEach(tc => {
-          let args = {};
-          try { args = JSON.parse(tc.function.arguments); } catch(_) {}
-          parts.push({ functionCall: { name: tc.function.name, args } });
-        });
-      }
-      return { role: 'model', parts: parts.length ? parts : [{ text: '' }] };
-    }
-    return { role: 'user', parts: [{ text: m.content }] };
-  });
+  for (let i = 0; i < chain.length; i++) {
+    const model = chain[i];
 
-  // Gemini function declarations
-  const functionDeclarations = tools.map(t => ({
-    name: t.function.name,
-    description: t.function.description,
-    parameters: t.function.parameters
-  }));
-
-  const body = {
-    system_instruction: { parts: [{ text: systemMsg?.content || '' }] },
-    contents,
-    tools: [{ functionDeclarations }],
-    generationConfig: { maxOutputTokens: 4096, temperature: 0.3 }
-  };
-
-  // Auth via header (works for both AIza... and AQ.... style Google keys).
-  // Walk the model fallback chain: if a model name is gone (404), try the next.
-  let res = null;
-  let lastErr = '';
-  for (let i = geminiModelIdx; i < GEMINI_MODELS.length; i++) {
-    const model = GEMINI_MODELS[i];
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-    res = await fetch(url, {
+    const doFetch = () => fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
-      body: JSON.stringify(body),
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${OPENROUTER_KEY}`,
+        // Optional but recommended by OpenRouter — identifies your app
+        'HTTP-Referer':  'http://localhost:7777',
+        'X-Title':       'VOYAGER India',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 4096,
+        temperature: 0.3,
+        messages,
+        tools,
+        tool_choice: 'auto',
+      }),
     });
 
-    // Rate limited on free tier — wait once and retry the same model
+    let res = await doFetch();
+
+    // Free-tier rate limit — wait briefly and retry the same model once
     if (res.status === 429) {
-      display.log('API', 'Gemini rate limit hit — waiting 5s and retrying...', 'warning');
-      await new Promise(r => setTimeout(r, 5000));
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
-        body: JSON.stringify(body),
-      });
+      display.log('API', `OpenRouter rate limit on ${model} — waiting 4s and retrying...`, 'warning');
+      await new Promise(r => setTimeout(r, 4000));
+      res = await doFetch();
     }
 
-    if (res.ok) { geminiModelIdx = i; break; }
+    if (res.ok) {
+      const data = await res.json();
+      // Some free models occasionally return an error payload with HTTP 200
+      if (data.error) {
+        const detail = JSON.stringify(data.error).slice(0, 200);
+        attempts.push(`${model}: ${detail}`);
+        display.log('API', `${model} errored (${detail.slice(0, 90)}), trying next free model...`, 'warning');
+        if (data.error.code === 404 || /unavailable for free/i.test(JSON.stringify(data.error))) modelChainStale = true;
+        continue;
+      }
+      if (!data.choices?.length) {
+        attempts.push(`${model}: empty choices`);
+        continue;
+      }
+      // Worked — bump this model to the front so future calls try it first
+      if (modelChainCache) modelChainCache = [model, ...modelChainCache.filter(m => m !== model)];
+      return data; // already OpenAI format — no conversion needed
+    }
 
-    lastErr = await res.text();
+    const bodyText = await res.text();
 
     // Auth errors won't be fixed by trying another model — fail fast with clear guidance
     if (res.status === 401 || res.status === 403) {
       throw new Error(
-        `Gemini rejected your API key (HTTP ${res.status}). ` +
-        `Fix: 1) Go to https://aistudio.google.com/apikey  2) Create API key  ` +
-        `3) Paste it as GEMINI_API_KEY in .env (no quotes, no spaces)  4) Restart. ` +
-        `Detail: ${lastErr.slice(0, 200)}`
+        `OpenRouter rejected your API key (HTTP ${res.status}). ` +
+        `Fix: 1) Go to https://openrouter.ai/keys  2) Create a key (starts with sk-or-...)  ` +
+        `3) Paste it as OPENROUTER_API_KEY in .env (no quotes, no spaces)  4) Restart. ` +
+        `Detail: ${bodyText.slice(0, 200)}`
       );
     }
 
-    // 404 = model name not available for this key/region → try next model in chain
-    if (res.status === 404 && i < GEMINI_MODELS.length - 1) {
-      display.log('API', `Model ${model} unavailable, trying ${GEMINI_MODELS[i + 1]}...`, 'warning');
-      continue;
-    }
-
-    throw new Error(`Gemini API error ${res.status}: ${lastErr.slice(0, 300)}`);
+    attempts.push(`${model}: HTTP ${res.status} ${bodyText.slice(0, 150)}`);
+    if (res.status === 404 || res.status === 400) modelChainStale = true; // this id may be gone — refetch list next time
+    display.log('API', `${model} unavailable (HTTP ${res.status}), trying next free model...`, 'warning');
   }
 
-  if (!res || !res.ok) {
-    throw new Error(`Gemini API error: ${lastErr.slice(0, 300) || 'no models in chain responded'}`);
-  }
-
-  const data = await res.json();
-  const candidate = data.candidates?.[0];
-  if (!candidate) throw new Error('No response from Gemini');
-
-  // Convert Gemini response to OpenAI-like format
-  const content = candidate.content;
-  let textContent = '';
-  const toolCalls = [];
-
-  (content?.parts || []).forEach((part, i) => {
-    if (part.text) textContent += part.text;
-    if (part.functionCall) {
-      toolCalls.push({
-        id: `call_${i}_${Date.now()}`,
-        type: 'function',
-        function: {
-          name: part.functionCall.name,
-          arguments: JSON.stringify(part.functionCall.args || {})
-        }
-      });
-    }
-  });
-
-  const finishReason = candidate.finishReason === 'STOP' ? 'stop' : 'tool_calls';
-
-  return {
-    choices: [{
-      message: {
-        role: 'assistant',
-        content: textContent || null,
-        tool_calls: toolCalls.length ? toolCalls : undefined
-      },
-      finish_reason: toolCalls.length ? 'tool_calls' : finishReason
-    }],
-    usage: {
-      prompt_tokens:     data.usageMetadata?.promptTokenCount || 0,
-      completion_tokens: data.usageMetadata?.candidatesTokenCount || 0
-    }
-  };
+  modelChainStale = true; // full failure → refetch the free-model list on the next call
+  throw new Error(
+    `All ${chain.length} free OpenRouter models tried failed for this request ` +
+    `(NOT a key problem if 'testkey' passed — the free lineup just rotated). ` +
+    `Attempts — ${attempts.join(' | ')}`
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -563,7 +605,7 @@ async function executeTool(name, input) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COMMAND HANDLER — agentic loop with Gemini (free) / Groq fallback
+// COMMAND HANDLER — agentic loop with OpenRouter (free) / Groq fallback
 // ─────────────────────────────────────────────────────────────────────────────
 async function handleCommand(text, source = 'shell') {
   if (isProcessing) {
@@ -589,18 +631,39 @@ async function handleCommand(text, source = 'shell') {
     while (true) {
       let response;
 
-      // Try Gemini first (free), fall back to Groq
+      // Try OpenRouter first (free models), fall back to Groq only if it has a real,
+      // usable key — a stray/placeholder GROQ_API_KEY must never hide the real error.
+      let usingGroqAsPrimary = false;
       try {
-        if (GEMINI_KEY && GEMINI_KEY !== 'YOUR_GEMINI_API_KEY_HERE') {
-          response = await callGemini(messages, TOOLS);
-        } else {
-          display.log('WARN', 'No Gemini key — using Groq fallback', 'warning');
+        if (!openrouterKeyMissing()) {
+          response = await callOpenRouter(messages, TOOLS);
+        } else if (groqKeyUsable()) {
+          usingGroqAsPrimary = true;
+          display.log('WARN', `OPENROUTER_API_KEY appears empty/missing to this process — using Groq (${maskedGroqKey()}) instead. ${envDiagnostics()}`, 'warning');
           response = await callGroq(messages, TOOLS);
+        } else {
+          throw new Error(`OPENROUTER_API_KEY not set and no usable GROQ_API_KEY fallback. ${envDiagnostics()}`);
         }
       } catch (apiErr) {
-        if (GROQ_KEY && !apiErr.message.includes('Groq')) {
-          display.log('WARN', `Gemini failed (${apiErr.message.slice(0,60)}), trying Groq...`, 'warning');
-          response = await callGroq(messages, TOOLS);
+        if (usingGroqAsPrimary) {
+          // Groq was used as primary (because OpenRouter key looked missing) and it ALSO failed.
+          throw new Error(
+            `OPENROUTER_API_KEY is empty/missing to this process, so Groq was used instead — and Groq failed too: ` +
+            `${apiErr.message}. ${envDiagnostics()}`
+          );
+        }
+        if (groqKeyUsable() && !apiErr.message.includes('Groq')) {
+          display.log('WARN', `OpenRouter failed — full reason: ${apiErr.message}`, 'warning');
+          display.log('WARN', `Trying Groq fallback (GROQ_API_KEY ${maskedGroqKey()})...`, 'warning');
+          try {
+            response = await callGroq(messages, TOOLS);
+          } catch (groqErr) {
+            // Combine both so neither error gets silently swallowed
+            throw new Error(
+              `OpenRouter failed: ${apiErr.message} | ` +
+              `Groq fallback (key ${maskedGroqKey()}) also failed: ${groqErr.message}`
+            );
+          }
         } else {
           throw apiErr;
         }
@@ -670,9 +733,10 @@ async function handleCommand(text, source = 'shell') {
 
   } catch (err) {
     const msg = err.message || 'Unknown error';
-    // Provide clear actionable error messages
-    if (msg.includes('GEMINI_API_KEY not set') || msg.includes('invalid_api_key') || msg.includes('401')) {
-      const helpMsg = 'API key error. Get a FREE Gemini key at https://aistudio.google.com/apikey → paste it as GEMINI_API_KEY in your .env file → restart.';
+    // Provide clear actionable error messages — only for ACTUAL key problems,
+    // not generic errors that happen to contain "401" somewhere in a JSON body.
+    if (msg.startsWith('OPENROUTER_API_KEY not set') || msg.startsWith('OpenRouter rejected your API key')) {
+      const helpMsg = 'API key error. Get a FREE OpenRouter key at https://openrouter.ai/keys → paste it as OPENROUTER_API_KEY in your .env file → restart.';
       display.log('VOYAGER', chalk.red(helpMsg), 'alert');
       dash.log('VOYAGER', helpMsg, 'alert');
       dash.reply(helpMsg);
@@ -687,31 +751,54 @@ async function handleCommand(text, source = 'shell') {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KEY SELF-TEST — minimal ping to verify the Gemini key works
+// KEY SELF-TEST — minimal ping to verify the OpenRouter key works
 // ─────────────────────────────────────────────────────────────────────────────
-async function verifyGemini() {
-  if (geminiKeyMissing()) {
-    return { ok: false, reason: 'GEMINI_API_KEY not set in .env. Get one free: https://aistudio.google.com/apikey' };
+async function verifyOpenRouter() {
+  if (openrouterKeyMissing()) {
+    return { ok: false, reason: 'OPENROUTER_API_KEY not set in .env. Get one free: https://openrouter.ai/keys' };
   }
-  for (const model of GEMINI_MODELS) {
+  let chain;
+  try {
+    chain = await getModelChain();
+  } catch (_) {
+    chain = STATIC_FALLBACK_MODELS;
+  }
+
+  let lastReason = '';
+  for (const model of chain) {
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_KEY },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'ping' }] }], generationConfig: { maxOutputTokens: 5 } }),
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${OPENROUTER_KEY}`,
+          'HTTP-Referer':  'http://localhost:7777',
+          'X-Title':       'VOYAGER India',
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 5,
+          messages: [{ role: 'user', content: 'ping' }],
+        }),
       });
-      if (res.ok) return { ok: true, model };
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.error) return { ok: true, model, chainSize: chain.length };
+        lastReason = JSON.stringify(data.error).slice(0, 150);
+        continue; // model-level error → try next
+      }
       const txt = await res.text();
       if (res.status === 401 || res.status === 403) {
-        return { ok: false, reason: `Key rejected (HTTP ${res.status}). Generate a fresh key at https://aistudio.google.com/apikey and paste it into .env with no quotes/spaces. Detail: ${txt.slice(0, 150)}` };
+        return { ok: false, reason: `Key rejected (HTTP ${res.status}). Generate a fresh key at https://openrouter.ai/keys (starts with sk-or-...) and paste it into .env with no quotes/spaces. Detail: ${txt.slice(0, 150)}` };
       }
-      if (res.status === 404) continue; // try next model
+      if (res.status === 404 || res.status === 400) { lastReason = `Model ${model} unavailable`; continue; }
+      if (res.status === 429) { lastReason = 'Rate limited — key is valid, just busy. Try again in a minute.'; return { ok: true, model, warning: lastReason }; }
       return { ok: false, reason: `HTTP ${res.status}: ${txt.slice(0, 150)}` };
     } catch (e) {
       return { ok: false, reason: `Network error: ${e.message}` };
     }
   }
-  return { ok: false, reason: 'No Gemini model in the fallback chain is available for this key.' };
+  return { ok: false, reason: `No free model in the chain (${chain.length} tried) responded. Last: ${lastReason}` };
 }
 
-module.exports = { handleCommand, TOOLS, verifyGemini };
+module.exports = { handleCommand, TOOLS, verifyOpenRouter, getModelChain };
