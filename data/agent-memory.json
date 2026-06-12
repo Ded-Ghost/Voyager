@@ -1,0 +1,128 @@
+{
+  "runs": 2,
+  "lastSnapshots": {
+    "Mumbai": {},
+    "Kolkata": {
+      "forecast": {
+        "alerts": [
+          {
+            "day": "Day 1 (2026-06-12)",
+            "detail": "UV index 8.05 — extreme",
+            "severity": "medium",
+            "type": "uv"
+          },
+          {
+            "day": "Day 2 (2026-06-13)",
+            "detail": "Thunderstorm",
+            "severity": "critical",
+            "type": "severe_weather"
+          },
+          {
+            "day": "Day 2 (2026-06-13)",
+            "detail": "83% precipitation probability",
+            "severity": "medium",
+            "type": "rain"
+          },
+          {
+            "day": "Day 2 (2026-06-13)",
+            "detail": "UV index 8 — extreme",
+            "severity": "medium",
+            "type": "uv"
+          },
+          {
+            "day": "Day 3 (2026-06-14)",
+            "detail": "Thunderstorm",
+            "severity": "critical",
+            "type": "severe_weather"
+          },
+          {
+            "day": "Day 3 (2026-06-14)",
+            "detail": "75% precipitation probability",
+            "severity": "medium",
+            "type": "rain"
+          },
+          {
+            "day": "Day 3 (2026-06-14)",
+            "detail": "UV index 9 — extreme",
+            "severity": "medium",
+            "type": "uv"
+          }
+        ],
+        "fetchedAt": "2026-06-12T08:03:50.089Z",
+        "forecast": [
+          {
+            "date": "2026-06-12",
+            "description": "Overcast",
+            "isAlertDay": false,
+            "isSevere": false,
+            "maxChanceOfRain": 40,
+            "maxGustKmph": 26,
+            "maxTempC": 32.3,
+            "maxWindKmph": 9,
+            "minTempC": 25.6,
+            "precipitationMm": 0,
+            "sunrise": "2026-06-12T04:51",
+            "sunset": "2026-06-12T18:21",
+            "uvIndex": 8.05
+          },
+          {
+            "date": "2026-06-13",
+            "description": "Thunderstorm",
+            "isAlertDay": true,
+            "isSevere": true,
+            "maxChanceOfRain": 83,
+            "maxGustKmph": 38,
+            "maxTempC": 33.9,
+            "maxWindKmph": 14,
+            "minTempC": 26.8,
+            "precipitationMm": 1.8,
+            "sunrise": "2026-06-13T04:51",
+            "sunset": "2026-06-13T18:21",
+            "uvIndex": 8
+          },
+          {
+            "date": "2026-06-14",
+            "description": "Thunderstorm",
+            "isAlertDay": true,
+            "isSevere": true,
+            "maxChanceOfRain": 75,
+            "maxGustKmph": 43,
+            "maxTempC": 34,
+            "maxWindKmph": 17,
+            "minTempC": 27.6,
+            "precipitationMm": 2.9,
+            "sunrise": "2026-06-14T04:51",
+            "sunset": "2026-06-14T18:21",
+            "uvIndex": 9
+          }
+        ],
+        "hasActiveAlerts": true,
+        "location": "Kolkata, India",
+        "timezone": "Asia/Kolkata"
+      }
+    }
+  },
+  "changeHistory": [
+    {
+      "destination": "Mumbai",
+      "timestamp": "2026-06-12T08:02:35.714Z",
+      "changes": [
+        {
+          "type": "first_observation",
+          "detail": "First monitoring run for Mumbai."
+        }
+      ]
+    },
+    {
+      "destination": "Kolkata",
+      "timestamp": "2026-06-12T08:04:20.951Z",
+      "changes": [
+        {
+          "type": "first_observation",
+          "detail": "First monitoring run for Kolkata."
+        }
+      ]
+    }
+  ],
+  "firstSeen": "2026-06-12T08:02:35.714Z"
+}

@@ -1,0 +1,87 @@
+{
+  "runs": [
+    {
+      "timestamp": "2026-06-12T07:58:15.766Z",
+      "inputTokens": 2503,
+      "outputTokens": 84,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T07:58:36.959Z",
+      "inputTokens": 3479,
+      "outputTokens": 274,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T07:58:52.270Z",
+      "inputTokens": 4751,
+      "outputTokens": 133,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T08:01:58.396Z",
+      "inputTokens": 3169,
+      "outputTokens": 45,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T08:02:20.165Z",
+      "inputTokens": 3209,
+      "outputTokens": 72,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T08:02:35.711Z",
+      "inputTokens": 3620,
+      "outputTokens": 284,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T08:02:54.233Z",
+      "inputTokens": 4272,
+      "outputTokens": 147,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T08:03:48.023Z",
+      "inputTokens": 3329,
+      "outputTokens": 177,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T08:04:20.950Z",
+      "inputTokens": 4546,
+      "outputTokens": 1065,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T08:04:36.031Z",
+      "inputTokens": 4976,
+      "outputTokens": 308,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-12T08:04:48.461Z",
+      "inputTokens": 6397,
+      "outputTokens": 185,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    }
+  ],
+  "totals": {
+    "input": 44251,
+    "output": 2774,
+    "cacheRead": 0,
+    "cacheCreate": 0
+  }
+}

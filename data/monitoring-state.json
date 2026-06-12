@@ -1,0 +1,7 @@
+{
+  "conditions_summary": "Thunderstorm warnings for next 48h and Unhealthy AQI.",
+  "destination": "Kolkata",
+  "next_check_in_min": 1440,
+  "status": "alert",
+  "lastUpdated": "2026-06-12T08:04:36.034Z"
+}

@@ -1,0 +1,23 @@
+[
+  {
+    "alert_type": "rain_warning",
+    "destination": "Mumbai",
+    "severity": "high",
+    "summary": "Critical thunderstorm warning for June 12th with 84% precipitation probability. Typical monsoon activity.",
+    "timestamp": "2026-06-12T07:58:36.961Z"
+  },
+  {
+    "alert_type": "rain_warning",
+    "destination": "Mumbai",
+    "severity": "high",
+    "summary": "Critical thunderstorm alert for June 12 with 84% rain probability. Monsoon conditions active.",
+    "timestamp": "2026-06-12T08:02:35.717Z"
+  },
+  {
+    "alert_type": "rain_warning",
+    "destination": "Kolkata",
+    "severity": "high",
+    "summary": "Critical thunderstorm alerts for June 13-14 with rain probability >75%. AQI is Unhealthy (162).",
+    "timestamp": "2026-06-12T08:04:36.033Z"
+  }
+]
