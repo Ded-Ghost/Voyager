@@ -121,6 +121,9 @@ body::after{
 .rt-type.flight{color:var(--secondary);border-color:rgba(74,158,255,0.3)}
 .rt-type.train{color:var(--warn);border-color:rgba(255,184,0,0.3)}
 .rt-type.drive{color:var(--muted);border-color:rgba(122,155,181,0.3)}
+.live-badge{display:inline-block;font-size:7px;letter-spacing:2px;padding:1px 5px;border:1px solid var(--primary);color:var(--primary);text-transform:uppercase;margin-left:6px;animation:pulse 1.6s infinite}
+.rt-status{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding:1px 5px;border:1px solid;margin-left:6px}
+.src-note{font-size:8px;color:var(--vmuted);letter-spacing:1px;margin:6px 0 8px;padding-left:2px}
 .rt-name{font-size:11px;color:var(--txt);letter-spacing:.5px}
 .rt-info{font-size:10px;color:var(--vmuted);margin-top:3px;line-height:1.6}
 .rt-info span{color:var(--muted)}
@@ -200,24 +203,37 @@ body::after{
         <button class="cbtn stop" id="cmd-stop">&#9632;</button>
         <button class="cbtn exec" id="cmd-exec">Execute</button>
       </div>
-      <div class="hint" style="text-align:center">Natural language &middot; "best route X to Y", "cheapest", "fastest", "via Z", "weather in X", "scan" &middot; Press / to focus</div>
+      <div class="hint" style="text-align:center">Natural language &middot; live flights/trains via "route X to Y" &middot; "cheapest"/"fastest"/"via Z" &middot; "weather in X" &middot; "scan" &middot; Press / to focus</div>
     </div>
   </div>
 </div>
 <script>
 /* ═══════ CITY DATA — positions from original tuned dashboard ═══════ */
 const CITIES=[
-  {name:'Delhi',     iata:'DEL',lat:28.61,lon:77.21, x:112,y:100, side:'r'},
-  {name:'Mumbai',    iata:'BOM',lat:19.08,lon:72.88, x:60, y:208, side:'l'},
-  {name:'Bengaluru', iata:'BLR',lat:12.97,lon:77.59, x:117,y:277, side:'l'},
-  {name:'Chennai',   iata:'MAA',lat:13.08,lon:80.27, x:150,y:276, side:'r'},
-  {name:'Kolkata',   iata:'CCU',lat:22.57,lon:88.36, x:249,y:169, side:'r'},
-  {name:'Hyderabad', iata:'HYD',lat:17.39,lon:78.49, x:128,y:227, side:'r'},
-  {name:'Kochi',     iata:'COK',lat:9.93, lon:76.27, x:101,y:311, side:'l'},
-  {name:'Goa',       iata:'GOI',lat:15.30,lon:73.81, x:75, y:251, side:'l'},
-  {name:'Ahmedabad', iata:'AMD',lat:23.02,lon:72.57, x:56, y:164, side:'l'},
-  {name:'Pune',      iata:'PNQ',lat:18.52,lon:73.85, x:72, y:214, side:'r'},
+  {name:'Delhi',     iata:'DEL',station:'NDLS', lat:28.61,lon:77.21, x:112,y:100, side:'r'},
+  {name:'Mumbai',    iata:'BOM',station:'BCT',  lat:19.08,lon:72.88, x:60, y:208, side:'l'},
+  {name:'Bengaluru', iata:'BLR',station:'SBC',  lat:12.97,lon:77.59, x:117,y:277, side:'l'},
+  {name:'Chennai',   iata:'MAA',station:'MAS',  lat:13.08,lon:80.27, x:150,y:276, side:'r'},
+  {name:'Kolkata',   iata:'CCU',station:'HWH',  lat:22.57,lon:88.36, x:249,y:169, side:'r'},
+  {name:'Hyderabad', iata:'HYD',station:'SC',   lat:17.39,lon:78.49, x:128,y:227, side:'r'},
+  {name:'Kochi',     iata:'COK',station:'ERS',  lat:9.93, lon:76.27, x:101,y:311, side:'l'},
+  {name:'Goa',       iata:'GOI',station:'MAO',  lat:15.30,lon:73.81, x:75, y:251, side:'l'},
+  {name:'Ahmedabad', iata:'AMD',station:'ADI',  lat:23.02,lon:72.57, x:56, y:164, side:'l'},
+  {name:'Pune',      iata:'PNQ',station:'PUNE', lat:18.52,lon:73.85, x:72, y:214, side:'r'},
+  /* Added cities — positions derived via linear fit to the India SVG path
+     (x \u2248 56 + (lon-72.57)*12.22, y \u2248 100 + (28.61-lat)*11.3) */
+  {name:'Lucknow',   iata:'LKO',station:'LKO',  lat:26.85,lon:80.95, x:158,y:120, side:'b'},
+  {name:'Jaipur',    iata:'JAI',station:'JP',   lat:26.91,lon:75.79, x:95, y:119, side:'l'},
+  {name:'Chandigarh',iata:'IXC',station:'CDG',  lat:30.73,lon:76.78, x:107,y:76,  side:'r'},
+  {name:'Patna',     iata:'PAT',station:'PNBE', lat:25.59,lon:85.14, x:210,y:134, side:'l'},
+  {name:'Bhopal',    iata:'BHO',station:'BPL',  lat:23.26,lon:77.41, x:115,y:161, side:'r'},
+  {name:'Guwahati',  iata:'GAU',station:'GHY',  lat:26.14,lon:91.74, x:290,y:128, side:'r'},
+  {name:'Varanasi',  iata:'VNS',station:'BSB',  lat:25.32,lon:82.97, x:183,y:137, side:'r'},
+  {name:'Nagpur',    iata:'NAG',station:'NGP',  lat:21.15,lon:79.09, x:136,y:184, side:'r'},
+  {name:'Surat',     iata:'STV',station:'ST',   lat:21.17,lon:72.83, x:59, y:184, side:'l'},
+  {name:'Indore',    iata:'IDR',station:'INDB', lat:22.72,lon:75.86, x:96, y:167, side:'b'},
 ];
+
 const AGENTS=[
   {nm:'ORCHESTRATOR',      rl:'Central command',     st:'idle'},
   {nm:'WEATHER MONITOR',   rl:'Conditions / AQI',    st:'idle'},
@@ -442,7 +458,12 @@ function buildMap(){
     star.appendChild(el('line',{x1:c.x-4,y1:c.y+4,x2:c.x+4,y2:c.y-4,opacity:0.5}));
     star.appendChild(el('circle',{cx:c.x,cy:c.y,r:2.2,filter:'url(#glow)'}));
     g.appendChild(star);
-    const lbl=el('text',{class:'lbl',x:c.side==='l'?c.x-9:c.x+9,y:c.y+2.5,'text-anchor':c.side==='l'?'end':'start'});
+    let lblX,lblY,lblAnchor;
+    if(c.side==='b'){lblX=c.x;lblY=c.y+13;lblAnchor='middle';}
+    else if(c.side==='t'){lblX=c.x;lblY=c.y-7;lblAnchor='middle';}
+    else if(c.side==='l'){lblX=c.x-9;lblY=c.y+2.5;lblAnchor='end';}
+    else{lblX=c.x+9;lblY=c.y+2.5;lblAnchor='start';}
+    const lbl=el('text',{class:'lbl',x:lblX,y:lblY,'text-anchor':lblAnchor});
     lbl.textContent=`${c.iata} \u00B7 ${c.name}`;
     g.appendChild(lbl);
     g.addEventListener('click',()=>selectCity(i));
@@ -496,6 +517,49 @@ async function fetchWeatherAQI(c){
 }
 async function fetchSeismic(c){
   return fetch(`https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=3.5&minlatitude=${(c.lat-6).toFixed(1)}&maxlatitude=${(c.lat+6).toFixed(1)}&minlongitude=${(c.lon-6).toFixed(1)}&maxlongitude=${(c.lon+6).toFixed(1)}&orderby=time&limit=3`).then(r=>r.json()).catch(()=>null);
+}
+
+/* ═══════ LIVE FLIGHT / TRAIN DATA (via local backend proxy) ═══════
+ * Backend (core/dashboard.js) holds the AviationStack + IRCTC RapidAPI keys
+ * and proxies these so the keys never reach the browser.
+ * If the dashboard is opened as a static file (no Node server), these
+ * fetches will fail silently and the UI falls back to the offline schedule DB. */
+async function fetchLiveFlights(fromIata,toIata){
+  try{
+    const r=await fetch(`/api/flights?from=${fromIata}&to=${toIata}`);
+    if(!r.ok)return{flights:[],error:'HTTP '+r.status};
+    return await r.json();
+  }catch(e){return{flights:[],error:'offline'};}
+}
+async function fetchLiveTrains(fromCode,toCode){
+  try{
+    const r=await fetch(`/api/trains?from=${fromCode}&to=${toCode}`);
+    if(!r.ok)return{trains:[],error:'HTTP '+r.status};
+    return await r.json();
+  }catch(e){return{trains:[],error:'offline'};}
+}
+async function fetchLiveRoute(A,B){
+  const[fl,tr]=await Promise.all([fetchLiveFlights(A.iata,B.iata),fetchLiveTrains(A.station,B.station)]);
+  return{flights:fl.flights||[],flightsErr:fl.error||null,trains:tr.trains||[],trainsErr:tr.error||null,trainDate:tr.date};
+}
+function fmtTime(iso){
+  if(!iso)return'--';
+  try{const d=new Date(iso);return d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Kolkata'});}catch(e){return iso.slice(11,16)||'--';}
+}
+function statusColor(status){
+  if(status==='cancelled'||status==='diverted')return'var(--danger)';
+  if(status==='active')return'var(--primary)';
+  if(status==='landed')return'var(--muted)';
+  return'var(--secondary)';
+}
+function durFromIso(dep,arr){
+  if(!dep||!arr)return null;
+  try{
+    const d1=new Date(dep),d2=new Date(arr);
+    let mins=Math.round((d2-d1)/60000);
+    if(mins<0)mins+=1440;
+    return Math.floor(mins/60)+'h '+(mins%60)+'m';
+  }catch(e){return null;}
 }
 
 /* ═══════ AQI CONFIG ═══════
@@ -618,14 +682,44 @@ function renderTopRoutes(c){
     html+=`</div></div>`;
   });
   $('routes-head').textContent='\u25A0 ROUTES FROM '+fromIata;
-  $('routes').innerHTML=html||'<div class="empty">No routes indexed</div>';
+  $('routes').innerHTML=html||`<div class="empty">No offline schedule indexed for ${fromIata}. Try: "route ${c.name.toLowerCase()} to delhi" for live data.</div>`;
 }
-function renderRouteDetail(ai,bi,result,opts={}){
+function renderRouteDetail(ai,bi,result,opts={},live=null){
   const A=CITIES[ai],B=CITIES[bi];
-  if(!result){$('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata;$('routes').innerHTML='<div class="empty">No route data for this pair</div>';return;}
   const prefer=opts.prefer||'best',mode=opts.mode||'all';
   let html='';
-  /* Helper to render a flight card with all departure times */
+  /* ───────── LIVE section ───────── */
+  let liveHasData=false;
+  if(live){
+    let liveFlights=mode!=='train'?[...(live.flights||[])]:[];
+    let liveTrains=mode!=='flight'?[...(live.trains||[])]:[];
+    if(prefer==='fast'){
+      liveFlights.sort((a,b)=>parseDur(durFromIso(a.depScheduled,a.arrScheduled))-parseDur(durFromIso(b.depScheduled,b.arrScheduled)));
+    }
+    liveHasData=liveFlights.length>0||liveTrains.length>0;
+    if(liveHasData){
+      html+=`<div style="font-size:10px;color:var(--primary);letter-spacing:2px;text-transform:uppercase;margin:0 0 5px;display:flex;align-items:center">LIVE \u2014 ${A.iata} \u2192 ${B.iata} TODAY<span class="live-badge">LIVE</span></div>`;
+      liveFlights.forEach(f=>{
+        const dep=fmtTime(f.depScheduled),arr=fmtTime(f.arrScheduled);
+        const delay=f.depDelay?` <span style="color:var(--warn)">+${f.depDelay}min delay</span>`:'';
+        const dur=durFromIso(f.depScheduled,f.arrScheduled);
+        html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.airline} ${f.flightNum}</span><span class="rt-status" style="color:${statusColor(f.status)};border-color:${statusColor(f.status)}">${(f.status||'').toUpperCase()}</span></div><div class="rt-info">Dep <span>${dep}</span> &middot; Arr <span>${arr}</span>${dur?' &middot; Duration <span>'+dur+'</span>':''}${delay}${f.terminal?' &middot; Terminal <span>'+f.terminal+'</span>':''}</div></div>`;
+      });
+      liveTrains.forEach(t=>{
+        html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE86 ${t.number} ${t.name}</span><span class="rt-status" style="color:var(--primary);border-color:var(--primary)">TODAY</span></div><div class="rt-info">Dep <span>${t.depTime||'--'}</span> &middot; Arr <span>${t.arrTime||'--'}</span> &middot; Duration <span>${t.duration||'--'}</span>${t.classes?'<br>Classes: <span>'+t.classes+'</span>':''}</div></div>`;
+      });
+    }
+  }
+  /* Note about live fetch issues (helps debugging without cluttering when it works) */
+  if(live&&!liveHasData){
+    const errs=[];
+    if(live.flightsErr&&live.flightsErr!=='offline')errs.push('Flights: '+live.flightsErr);
+    if(live.trainsErr&&live.trainsErr!=='offline')errs.push('Trains: '+live.trainsErr);
+    if(live.flightsErr==='offline'||live.trainsErr==='offline')errs.push('Live API unreachable (server proxy offline)');
+    if(errs.length)html+=`<div class="src-note">Live lookup: ${errs.join(' \u00B7 ')} \u2014 showing reference schedule below</div>`;
+    else html+=`<div class="src-note">No live flights/trains found for ${A.iata}\u2192${B.iata} today \u2014 reference schedule below</div>`;
+  }
+  /* Helper to render static reference cards */
   function flightCard(f){
     const deps=f.deps?`<br>Daily slots: <span>${f.deps.join(' \u00B7 ')}</span>`:'';
     return `<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.al}</span><span class="rt-type flight">FLIGHT</span></div><div class="rt-info">Duration <span>${f.dur}</span> &middot; Frequency <span>${f.freq}</span> &middot; <span>${f.cost}</span>${deps}</div></div>`;
@@ -637,6 +731,13 @@ function renderRouteDetail(ai,bi,result,opts={}){
   }
   function driveCard(d){return `<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE97 Drive</span><span class="rt-type drive">ROAD</span></div><div class="rt-info">Distance <span>${d.dist}</span> &middot; Duration <span>${d.dur}</span><br>Via <span>${d.via}</span></div></div>`;}
 
+  if(!result){
+    $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata;
+    if(!liveHasData)html+='<div class="empty">No reference schedule on file for this pair</div>';
+    $('routes').innerHTML=html;return;
+  }
+  /* ───────── Static reference section ───────── */
+  if(liveHasData)html+=`<div style="font-size:10px;color:var(--vmuted);letter-spacing:2px;text-transform:uppercase;margin:10px 0 5px;opacity:.6">REFERENCE SCHEDULE</div>`;
   if(result.type==='direct'){
     const r=ROUTES[result.key];
     $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata+' \u00B7 '+(prefer==='cheap'?'CHEAPEST':prefer==='fast'?'FASTEST':'ALL OPTIONS');
@@ -644,20 +745,18 @@ function renderRouteDetail(ai,bi,result,opts={}){
     let trains=r.trains?[...r.trains]:[];
     sortByPreference(flights,prefer,'flight');
     sortByPreference(trains,prefer,'train');
-    /* Show best 1 first if preference set */
     if(prefer!=='best'&&(flights.length||trains.length)){
       const allOpts=[];
       if(mode!=='train')flights.forEach(f=>allOpts.push({card:flightCard(f),score:prefer==='cheap'?(f.low||9e9):parseDur(f.dur)}));
       if(mode!=='flight')trains.forEach(t=>allOpts.push({card:trainCard(t),score:prefer==='cheap'?500:parseDur(t.dur)}));
       allOpts.sort((a,b)=>a.score-b.score);
-      if(allOpts.length){html+=`<div class="disr ok"><div class="tag">TOP PICK \u00B7 ${prefer.toUpperCase()}</div>Best match below</div>`;html+=allOpts[0].card;allOpts.slice(1).forEach(o=>html+=o.card);}
+      if(allOpts.length){if(!liveHasData)html+=`<div class="disr ok"><div class="tag">TOP PICK \u00B7 ${prefer.toUpperCase()}</div>Best match below</div>`;html+=allOpts[0].card;allOpts.slice(1).forEach(o=>html+=o.card);}
     }else{
       if(mode!=='train')flights.forEach(f=>html+=flightCard(f));
       if(mode!=='flight')trains.forEach(t=>html+=trainCard(t));
     }
     if(mode==='all'&&r.drive)html+=driveCard(r.drive);
-  }else{
-    /* Connecting */
+  }else if(result.type==='connecting'){
     $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+result.hub+' \u2192 '+B.iata;
     const note=result.forcedVia?'User-specified routing':'Best connection algorithm';
     html+=`<div class="disr warn"><div class="tag">NO DIRECT ROUTE</div>${note} via <span style="color:var(--txt)">${result.hubName} (${result.hub})</span><br>Est. total <span style="color:var(--txt)">${formatMin(result.totalMin)}</span> incl. 1h 30m layover</div>`;
@@ -668,6 +767,9 @@ function renderRouteDetail(ai,bi,result,opts={}){
     html+=`<div style="font-size:10px;color:var(--primary);letter-spacing:2px;text-transform:uppercase;margin:8px 0 5px;opacity:.7">LEG 2 &middot; ${result.hub} \u2192 ${B.iata}</div>`;
     if(mode!=='train'&&r2.flights?.length){let f=[...r2.flights];sortByPreference(f,prefer,'flight');f.slice(0,2).forEach(x=>html+=flightCard(x));}
     if(mode!=='flight'&&r2.trains?.length){let t=[...r2.trains];sortByPreference(t,prefer,'train');t.slice(0,1).forEach(x=>html+=trainCard(x));}
+  }else{
+    $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata;
+    if(!liveHasData)html+='<div class="empty">No reference schedule on file for this pair</div>';
   }
   $('routes').innerHTML=html;
 }
@@ -749,7 +851,6 @@ async function routeCommand(fromStr,toStr,opts={}){
   /* If user specified via city, force that hub */
   let result;
   if(opts.via){
-    const viaIdx=CITIES.findIndex(c=>c.iata===opts.via.iata);
     const leg1=routeKey(A.iata,opts.via.iata),leg2=routeKey(opts.via.iata,B.iata);
     if(leg1&&leg2){
       const r1=ROUTES[leg1],r2=ROUTES[leg2];
@@ -774,19 +875,29 @@ async function routeCommand(fromStr,toStr,opts={}){
   }else if(result){
     drawRouteLine(ai,bi);showOverlay(`${A.iata} \u2192 ${B.iata}`);
   }else{
-    showOverlay(`${A.iata} \u2192 ${B.iata}`);
+    drawRouteLine(ai,bi);showOverlay(`${A.iata} \u2192 ${B.iata}`);
   }
   pushHistory(`route ${A.iata.toLowerCase()} ${B.iata.toLowerCase()}${opts.via?' via '+opts.via.iata.toLowerCase():''}${opts.prefer!=='best'?' ['+opts.prefer+']':''}`);
   S.cmdCount++;$('tel-cmd').textContent=S.cmdCount;
   stream(`${opts.prefer==='cheap'?'CHEAPEST':opts.prefer==='fast'?'FASTEST':'BEST'} route: ${A.name} \u2192 ${B.name}${opts.via?' via '+opts.via.name:''}`,'ORCH');
   setAgent(0,'active');
-  setTimeout(()=>{setAgent(0,'idle');setAgent(3,'active');stream('Computing options...','PLAN');},200);
-  setTimeout(()=>{
-    renderRouteDetail(ai,bi,result,opts);setAgent(3,'idle');S.toolCount++;$('tel-tool').textContent=S.toolCount;
-    if(result?.type==='connecting')stream(`No direct route \u2014 connecting via ${result.hubName} (${result.hub})`,'PLAN');
-    else if(result)stream('Direct routes loaded','PLAN');
-    else stream('No route data for this pair','PLAN');
-  },500);
+  setTimeout(()=>{setAgent(0,'idle');setAgent(3,'active');stream('Querying live flight + train data...','PLAN');},200);
+  $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata;
+  $('routes').innerHTML='<div class="empty">Querying live data\u2026</div>';
+  /* Live fetch — primary source. Falls back to static schedule below regardless. */
+  const live=await fetchLiveRoute(A,B);
+  S.toolCount+=2;$('tel-tool').textContent=S.toolCount;
+  renderRouteDetail(ai,bi,result,opts,live);
+  setAgent(3,'idle');
+  if(live.flights.length||live.trains.length){
+    stream(`Live data: ${live.flights.length} flight(s), ${live.trains.length} train(s)`,'PLAN');
+  }else if(result?.type==='connecting'){
+    stream(`No live direct \u2014 connecting via ${result.hubName} (${result.hub}) [reference schedule]`,'PLAN');
+  }else if(result){
+    stream('No live data \u2014 showing reference schedule','PLAN');
+  }else{
+    stream('No live or reference data for this pair','PLAN');
+  }
   setTimeout(async()=>{
     setAgent(2,'active');stream('Checking corridor disruptions...','REROUTE');
     try{
