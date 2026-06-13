@@ -30,8 +30,8 @@ body::after{
 #app{
   display:grid;height:100vh;
   grid-template-columns:230px 1fr 260px;
-  grid-template-rows:48px 1fr 120px;
-  grid-template-areas:"header header header" "left center right" "footL footL footR";
+  grid-template-rows:48px 1fr auto;
+  grid-template-areas:"header header header" "left center right" "foot foot foot";
   gap:1px;background:rgba(0,255,200,0.06);
 }
 #header{grid-area:header;background:var(--panel);display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line)}
@@ -130,14 +130,15 @@ body::after{
 #notepad:empty::before{content:"Log notes\2026";color:var(--vmuted)}
 #notepad:focus{border-color:rgba(0,255,200,0.3)}
 /* footer */
-#footL{grid-area:footL;background:var(--panel);padding:10px 13px;overflow-y:auto;border-top:1px solid var(--line)}
-#footL::-webkit-scrollbar{width:4px}#footL::-webkit-scrollbar-thumb{background:rgba(0,255,200,0.15)}
-.stream-item{font-size:10px;color:var(--muted);padding:2px 0;letter-spacing:.5px}
+#footer{grid-area:foot;background:var(--panel);padding:8px 20px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px;align-items:center}
+.stream-bar{width:100%;max-width:900px;display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.stream-bar::-webkit-scrollbar{display:none}
+.stream-item{font-size:9px;color:var(--muted);padding:3px 10px;letter-spacing:.5px;white-space:nowrap;flex-shrink:0;border-right:1px solid var(--line)}
 .stream-item .t{color:var(--vmuted);margin-right:7px;font-size:9px}
 .stream-item.flash{animation:flash 1s ease-out}
 .stream-item .ag{color:var(--secondary);margin-right:4px}
 @keyframes flash{0%{background:rgba(0,255,200,0.18)}100%{background:transparent}}
-#footR{grid-area:footR;background:var(--panel);padding:10px 13px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px;justify-content:center}
+.cmd-wrap{width:100%;max-width:900px;display:flex;flex-direction:column;gap:4px}
 .cmd-row{display:flex;align-items:stretch;gap:7px}
 .cmd-arrow{color:var(--primary);font-size:15px;display:flex;align-items:center}
 #cmd-input{flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--line);color:var(--txt);font-family:inherit;font-size:13px;padding:7px 10px;outline:none;letter-spacing:1px}
@@ -190,15 +191,17 @@ body::after{
     <div class="block"><div class="sec-head">Seismic / Cyclone</div><div id="seismic"><div class="seis"><span class="dot green"></span>Monitoring region</div></div></div>
     <div class="block"><div class="sec-head">Notepad</div><div id="notepad" contenteditable="true"></div></div>
   </div>
-  <div id="footL"><div class="sec-head">Activity Stream</div><div id="stream"></div></div>
-  <div id="footR">
-    <div class="cmd-row">
-      <span class="cmd-arrow">&#9656;</span>
-      <input id="cmd-input" placeholder="inspect delhi / route del bom / delays mumbai" autocomplete="off">
-      <button class="cbtn stop" id="cmd-stop">&#9632;</button>
-      <button class="cbtn exec" id="cmd-exec">Execute</button>
+  <div id="footer">
+    <div class="stream-bar" id="stream"></div>
+    <div class="cmd-wrap">
+      <div class="cmd-row">
+        <span class="cmd-arrow">&#9656;</span>
+        <input id="cmd-input" placeholder="inspect delhi / route del bom / route ccu cok / delays mumbai / scan" autocomplete="off">
+        <button class="cbtn stop" id="cmd-stop">&#9632;</button>
+        <button class="cbtn exec" id="cmd-exec">Execute</button>
+      </div>
+      <div class="hint" style="text-align:center">Press / to focus &middot; commands: inspect, route, delays, scan, help</div>
     </div>
-    <div class="hint">Press / to focus &middot; commands: inspect, route, delays, scan, help</div>
   </div>
 </div>
 <script>
@@ -246,8 +249,40 @@ const ROUTES={
 'HYD-CCU':{flights:[{al:'IndiGo 6E',dur:'2h 20m',freq:'6/day',cost:'\u20B94K-9K'}],trains:[{nm:'Falaknuma Exp 12704',dur:'26h',dep:'17:05',type:'SUPERFAST'}],drive:{dist:'1,490 km',dur:'~25h',via:'NH-65/16'}},
 'AMD-BOM':{flights:[{al:'IndiGo 6E',dur:'1h 20m',freq:'12/day',cost:'\u20B93K-6K'}],trains:[{nm:'Shatabdi 12010',dur:'7h',dep:'14:25',type:'SHATABDI'},{nm:'Karnavati Exp 12934',dur:'8h',dep:'23:55',type:'SUPERFAST'}],drive:{dist:'530 km',dur:'~8h',via:'NH-48'}},
 'GOI-BLR':{flights:[{al:'IndiGo 6E',dur:'1h 10m',freq:'6/day',cost:'\u20B93K-6K'}],trains:[{nm:'Vasco Express 17310',dur:'14h',dep:'17:00',type:'EXPRESS'}],drive:{dist:'560 km',dur:'~10h',via:'NH-748/48'}},
+'MAA-COK':{flights:[{al:'IndiGo 6E',dur:'1h 25m',freq:'6/day',cost:'\u20B93K-6K'}],trains:[{nm:'Trivandrum Mail 12624',dur:'11h 15m',dep:'19:45',type:'SUPERFAST'},{nm:'Alleppey Exp 16042',dur:'11h 40m',dep:'21:30',type:'EXPRESS'}],drive:{dist:'700 km',dur:'~12h',via:'NH-44/66'}},
+'CCU-BLR':{flights:[{al:'IndiGo 6E',dur:'2h 40m',freq:'8/day',cost:'\u20B94.5K-10K'},{al:'Air India',dur:'2h 45m',freq:'4/day',cost:'\u20B95K-13K'}],trains:[{nm:'Yesvantpur Exp 12864',dur:'34h',dep:'20:45',type:'SUPERFAST'}],drive:{dist:'1,870 km',dur:'~30h',via:'NH-16/44'}},
+'BOM-CCU':{flights:[{al:'IndiGo 6E',dur:'2h 35m',freq:'14/day',cost:'\u20B94.5K-10K'},{al:'Air India',dur:'2h 40m',freq:'6/day',cost:'\u20B95K-13K'}],trains:[{nm:'Gitanjali Exp 12860',dur:'26h 30m',dep:'06:00',type:'SUPERFAST'}],drive:{dist:'1,960 km',dur:'~32h',via:'NH-16'}},
+'DEL-GOI':{flights:[{al:'IndiGo 6E',dur:'2h 20m',freq:'10/day',cost:'\u20B94K-9K'},{al:'Vistara UK',dur:'2h 25m',freq:'4/day',cost:'\u20B95K-12K'}],trains:[{nm:'Goa Rajdhani 12432',dur:'26h',dep:'15:00',type:'RAJDHANI'}],drive:{dist:'1,880 km',dur:'~28h',via:'NH-48'}},
+'HYD-COK':{flights:[{al:'IndiGo 6E',dur:'1h 35m',freq:'6/day',cost:'\u20B93.5K-7K'}],trains:[{nm:'Hyderabad-Ernakulam 17230',dur:'19h',dep:'14:00',type:'EXPRESS'}],drive:{dist:'1,030 km',dur:'~16h',via:'NH-65/544'}},
+'DEL-COK':{flights:[{al:'IndiGo 6E',dur:'3h 10m',freq:'4/day',cost:'\u20B95K-12K'},{al:'Air India',dur:'3h 15m',freq:'3/day',cost:'\u20B96K-15K'}],trains:[{nm:'Kerala Express 12626',dur:'44h',dep:'11:25',type:'SUPERFAST'}],drive:{dist:'2,620 km',dur:'~42h',via:'NH-44'}},
+'PNQ-BLR':{flights:[{al:'IndiGo 6E',dur:'1h 30m',freq:'8/day',cost:'\u20B93K-7K'}],trains:[],drive:{dist:'840 km',dur:'~14h',via:'NH-48'}},
 };
 function routeKey(a,b){const k1=a+'-'+b,k2=b+'-'+a;return ROUTES[k1]?k1:ROUTES[k2]?k2:null;}
+/* Multi-hop: find 1-stop connecting routes via hub city */
+function findConnecting(fromIata,toIata){
+  const direct=routeKey(fromIata,toIata);
+  if(direct)return{type:'direct',key:direct};
+  // Try every city as a hub
+  const options=[];
+  for(const hub of CITIES){
+    if(hub.iata===fromIata||hub.iata===toIata)continue;
+    const leg1=routeKey(fromIata,hub.iata), leg2=routeKey(hub.iata,toIata);
+    if(leg1&&leg2){
+      const r1=ROUTES[leg1],r2=ROUTES[leg2];
+      // Pick fastest option per leg (flight first, then train)
+      const best1=r1.flights?.[0]||r1.trains?.[0];
+      const best2=r2.flights?.[0]||r2.trains?.[0];
+      if(best1&&best2){
+        const dur1=parseDur(best1.dur),dur2=parseDur(best2.dur);
+        options.push({type:'connecting',hub:hub.iata,hubName:hub.name,leg1key:leg1,leg2key:leg2,best1,best2,totalMin:dur1+dur2+90}); // +90min layover
+      }
+    }
+  }
+  options.sort((a,b)=>a.totalMin-b.totalMin);
+  return options.length?options[0]:null;
+}
+function parseDur(s){const m=s.match(/(\d+)h\s*(\d+)?m?/);return m?(parseInt(m[1])*60+parseInt(m[2]||0)):999;}
+function formatMin(m){const h=Math.floor(m/60);return h+'h '+(m%60)+'m';}
 
 /* ═══════ STATE ═══════ */
 const S={selected:null,muted:false,cmdCount:0,toolCount:0,history:[],routeMode:null};
@@ -331,7 +366,7 @@ function pushHistory(txt){S.history.unshift({txt,t:now()});S.history=S.history.s
 function stream(msg,agent){
   const d=document.createElement('div');d.className='stream-item flash';
   d.innerHTML=`<span class="t">${now()}</span>${agent?'<span class="ag">['+agent+']</span>':''}${msg}`;
-  const c=$('stream');c.insertBefore(d,c.firstChild);while(c.children.length>8)c.removeChild(c.lastChild);
+  const c=$('stream');c.insertBefore(d,c.firstChild);while(c.children.length>5)c.removeChild(c.lastChild);
 }
 
 /* ═══════ APIs ═══════ */
@@ -445,13 +480,27 @@ function renderTopRoutes(c){
 }
 function renderRouteDetail(ai,bi){
   const A=CITIES[ai],B=CITIES[bi];
-  const k=routeKey(A.iata,B.iata);
-  if(!k){$('routes').innerHTML='<div class="empty">No route data for '+A.iata+'\u2192'+B.iata+'</div>';return;}
-  const r=ROUTES[k]; let html='';
-  $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata+' CORRIDOR';
-  if(r.flights){r.flights.forEach(f=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.al}</span><span class="rt-type flight">FLIGHT</span></div><div class="rt-info">Duration <span>${f.dur}</span> &middot; Frequency <span>${f.freq}</span><br>Fare range <span>${f.cost}</span></div></div>`;});}
-  if(r.trains){r.trains.forEach(t=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE86 ${t.nm}</span><span class="rt-type train">${t.type}</span></div><div class="rt-info">Duration <span>${t.dur}</span> &middot; Departs <span>${t.dep}</span></div></div>`;});}
-  if(r.drive){html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE97 Drive</span><span class="rt-type drive">ROAD</span></div><div class="rt-info">Distance <span>${r.drive.dist}</span> &middot; Duration <span>${r.drive.dur}</span><br>Via <span>${r.drive.via}</span></div></div>`;}
+  const result=findConnecting(A.iata,B.iata);
+  if(!result){$('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata;$('routes').innerHTML='<div class="empty">No route data for this pair</div>';return;}
+  let html='';
+  if(result.type==='direct'){
+    const r=ROUTES[result.key];
+    $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata+' DIRECT';
+    if(r.flights){r.flights.forEach(f=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.al}</span><span class="rt-type flight">FLIGHT</span></div><div class="rt-info">Duration <span>${f.dur}</span> &middot; Frequency <span>${f.freq}</span><br>Fare range <span>${f.cost}</span></div></div>`;});}
+    if(r.trains){r.trains.forEach(t=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE86 ${t.nm}</span><span class="rt-type train">${t.type}</span></div><div class="rt-info">Duration <span>${t.dur}</span> &middot; Departs <span>${t.dep}</span></div></div>`;});}
+    if(r.drive){html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE97 Drive</span><span class="rt-type drive">ROAD</span></div><div class="rt-info">Distance <span>${r.drive.dist}</span> &middot; Duration <span>${r.drive.dur}</span><br>Via <span>${r.drive.via}</span></div></div>`;}
+  } else {
+    /* Connecting route via hub */
+    $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+result.hub+' \u2192 '+B.iata;
+    html+=`<div class="disr warn"><div class="tag">NO DIRECT ROUTE</div>Best connection via <span style="color:var(--txt)">${result.hubName} (${result.hub})</span> &middot; Est. total <span style="color:var(--txt)">${formatMin(result.totalMin)}</span> incl. 1h 30m layover</div>`;
+    const r1=ROUTES[result.leg1key],r2=ROUTES[result.leg2key];
+    html+=`<div style="font-size:9px;color:var(--primary);letter-spacing:2px;text-transform:uppercase;margin:8px 0 5px;opacity:.7">LEG 1 &middot; ${A.iata} \u2192 ${result.hub}</div>`;
+    if(r1.flights?.length){r1.flights.slice(0,2).forEach(f=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.al}</span><span class="rt-type flight">FLIGHT</span></div><div class="rt-info">Duration <span>${f.dur}</span> &middot; <span>${f.cost}</span></div></div>`;});}
+    if(r1.trains?.length){r1.trains.slice(0,1).forEach(t=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE86 ${t.nm}</span><span class="rt-type train">${t.type}</span></div><div class="rt-info">Duration <span>${t.dur}</span> &middot; Departs <span>${t.dep}</span></div></div>`;});}
+    html+=`<div style="font-size:9px;color:var(--primary);letter-spacing:2px;text-transform:uppercase;margin:8px 0 5px;opacity:.7">LEG 2 &middot; ${result.hub} \u2192 ${B.iata}</div>`;
+    if(r2.flights?.length){r2.flights.slice(0,2).forEach(f=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.al}</span><span class="rt-type flight">FLIGHT</span></div><div class="rt-info">Duration <span>${f.dur}</span> &middot; <span>${f.cost}</span></div></div>`;});}
+    if(r2.trains?.length){r2.trains.slice(0,1).forEach(t=>{html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE86 ${t.nm}</span><span class="rt-type train">${t.type}</span></div><div class="rt-info">Duration <span>${t.dur}</span> &middot; Departs <span>${t.dep}</span></div></div>`;});}
+  }
   $('routes').innerHTML=html;
 }
 
@@ -532,14 +581,33 @@ async function routeCommand(fromStr,toStr){
   if(ai===bi){stream('Same city \u2014 specify two different cities');return;}
   const A=CITIES[ai],B=CITIES[bi];
   S.routeMode={from:ai,to:bi};S.selected=null;syncQI();
-  showOverlay(`${A.iata} \u2192 ${B.iata}`);
-  drawRouteLine(ai,bi);pushHistory(`route ${A.iata.toLowerCase()} ${B.iata.toLowerCase()}`);
+  const result=findConnecting(A.iata,B.iata);
+  /* Draw map lines */
+  const layer=$('conn-layer');layer.innerHTML='';
+  if(result&&result.type==='connecting'){
+    const hi=CITIES.findIndex(c=>c.iata===result.hub);
+    if(hi>=0){
+      const H=CITIES[hi];
+      [['conn',A,H],['conn',H,B]].forEach(([cls,P,Q])=>{
+        const mx=(P.x+Q.x)/2,my=(P.y+Q.y)/2-16;
+        layer.appendChild(el('path',{class:cls,d:`M${P.x},${P.y} Q${mx},${my} ${Q.x},${Q.y}`,'stroke-width':'2'}));
+      });
+    }
+    showOverlay(`${A.iata} \u2192 ${result.hub} \u2192 ${B.iata}`);
+  } else {
+    drawRouteLine(ai,bi);
+    showOverlay(`${A.iata} \u2192 ${B.iata}`);
+  }
+  pushHistory(`route ${A.iata.toLowerCase()} ${B.iata.toLowerCase()}`);
   S.cmdCount++;$('tel-cmd').textContent=S.cmdCount;
   stream(`Route query: ${A.name} \u2192 ${B.name}`,'ORCH');
   setAgent(0,'active');
   setTimeout(()=>{setAgent(0,'idle');setAgent(3,'active');stream('Computing route options...','PLAN');},200);
-  setTimeout(()=>{renderRouteDetail(ai,bi);setAgent(3,'idle');S.toolCount++;$('tel-tool').textContent=S.toolCount;stream(`${ROUTES[routeKey(A.iata,B.iata)]?'Routes loaded':'No route data'}`,'PLAN');},500);
-  // Fetch disruptions for both endpoints
+  setTimeout(()=>{
+    renderRouteDetail(ai,bi);setAgent(3,'idle');S.toolCount++;$('tel-tool').textContent=S.toolCount;
+    if(result?.type==='connecting') stream(`No direct route \u2014 connecting via ${result.hubName} (${result.hub}), est. ${formatMin(result.totalMin)}`,'PLAN');
+    else stream('Direct routes loaded','PLAN');
+  },500);
   setTimeout(async()=>{
     setAgent(2,'active');stream('Checking corridor disruptions...','REROUTE');
     try{
@@ -554,7 +622,7 @@ async function routeCommand(fromStr,toStr){
       setAgent(2,allAlerts.some(a=>a.level!=='ok')?'standby':'idle');
       const temp=dA.w?.current?Math.round(dA.w.current.temperature_2m):null;
       const[desc]=dA.w?.current?wmo(dA.w.current.weather_code):[''];
-      speak(`Route from ${A.name} to ${B.name}. ${A.name} is ${temp??''} degrees, ${desc.toLowerCase()}. ${allAlerts[0].level==='ok'?'No disruptions on this corridor.':'Warning, '+allAlerts.filter(a=>a.level!=='ok').length+' disruptions detected.'}`);
+      speak(`Route from ${A.name} to ${B.name}. ${result?.type==='connecting'?'No direct route, connecting via '+result.hubName+'.':''} ${A.name} is ${temp??''} degrees, ${desc.toLowerCase()}. ${allAlerts[0].level==='ok'?'No disruptions.':'Warning, '+allAlerts.filter(a=>a.level!=='ok').length+' disruptions detected.'}`);
     }catch(e){setAgent(2,'error');stream('Corridor scan failed','REROUTE');}
   },700);
 }
