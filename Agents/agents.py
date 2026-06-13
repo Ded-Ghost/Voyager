@@ -489,14 +489,22 @@ class RailAgent(BaseAgent):
             }}No markdown.No explanation.JSON only.Do not wrap in ```json.Do not explain.Output must be parseable by Python json.loads().""")
             rail_data = json.loads(clean_json(response))
             if "itinerary" in rail_data:
-                rail_json = next(leg for leg in rail_data["itinerary"] if leg["type"] in ["train", "rail"])
+                rail_json = next((leg for leg in rail_data["itinerary"] if leg.get("type") in ["train", "rail"]), None)
             elif "legs" in rail_data:
-                rail_json = next(leg for leg in rail_data["legs"] if leg["type"] == "rail")
-            elif rail_data.get("type") == "flight":
+                rail_json = next((leg for leg in rail_data["legs"] if leg.get("type") in ["train", "rail"]), None)
+            elif "train" in rail_data and isinstance(rail_data["train"], dict):
+                rail_json = rail_data["train"]
+            elif "rail" in rail_data and isinstance(rail_data["rail"], dict):
+                rail_json = rail_data["rail"]
+            elif rail_data.get("type") in ("train", "rail"):
                 rail_json = rail_data
             else:
-                rail_json = rail_data
-            #rail_json = next(leg for leg in rail_data["itinerary"] if leg["type"] in ["train", "rail"])
+                rail_json = None
+
+            if rail_json is None:
+                self.log(state, "LLM did not return a valid rail leg. Skipping rail.")
+                return
+
             rail_json = normalize_leg(rail_json)
             if rail_json.get("status") not in ("proposed", "confirmed"):
                 rail_json["status"] = "proposed"

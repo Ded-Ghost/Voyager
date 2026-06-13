@@ -222,6 +222,30 @@ async function callOpenRouter(messages, tools) {
   );
 }
 
+const GITHUB_TOKEN = cleanKey(process.env.GITHUB_TOKEN);
+
+async function callGitHubModels(messages, tools) {
+  if (!GITHUB_TOKEN) throw new Error('No GITHUB_TOKEN set');
+  const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      max_tokens: 4096,
+      messages,
+      tools,
+      tool_choice: 'auto'
+    })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`GitHub Models API error ${res.status}: ${err}`);
+  }
+  return res.json();
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // GROQ FALLBACK
 // ─────────────────────────────────────────────────────────────────────────────
@@ -676,8 +700,8 @@ async function handleCommand(text, source = 'shell') {
       // usable key — a stray/placeholder GROQ_API_KEY must never hide the real error.
       let usingGroqAsPrimary = false;
       try {
-        if (!openrouterKeyMissing()) {
-          response = await callOpenRouter(messages, TOOLS);
+        if (GITHUB_TOKEN) {
+          response = await callGitHubModels(messages, TOOLS);
         } else if (groqKeyUsable()) {
           usingGroqAsPrimary = true;
           display.log('WARN', `OPENROUTER_API_KEY appears empty/missing to this process — using Groq (${maskedGroqKey()}) instead. ${envDiagnostics()}`, 'warning');
