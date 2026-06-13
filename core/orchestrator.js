@@ -482,6 +482,20 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'run_itinerary_swarm',
+      description: 'Generate a validated multi-modal (flight+rail) itinerary for an India trip using the dedicated planning swarm. Use this when the user asks to plan, book, or build a trip/itinerary between two or more cities.',
+      parameters: {
+        type: 'object',
+        properties: {
+          user_prompt: { type: 'string', description: 'The full natural-language trip request, verbatim' },
+        },
+        required: ['user_prompt'],
+      },
+    },
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -598,6 +612,33 @@ async function executeTool(name, input) {
       dash.emit('india_city_highlight', { city: input.city, state: input.state });
       display.log('MAP', `India map → ${input.city}`, 'info');
       return { ok: true, city: input.city };
+
+    case 'run_itinerary_swarm': {
+      display.log('SWARM', 'Calling itinerary planning swarm (Groq)...', 'info');
+      dash.emit('agent_activated', { agent: 'itinerary_planner', status: 'active' });
+
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 60000);
+      let res;
+      try {
+        res = await fetch('http://localhost:8000/run-swarm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_prompt: input.user_prompt }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(t);
+      }
+      if (!res.ok) throw new Error(`Swarm API error: HTTP ${res.status}`);
+      const data = await res.json();
+
+      dash.emit('itinerary_result', data);
+      dash.emit('agent_activated', { agent: 'itinerary_planner', status: data.is_validated ? 'idle' : 'standby' });
+      display.log('SWARM', data.is_validated ? '✓ Itinerary validated' : '⚠ Validation issues', data.is_validated ? 'success' : 'warning');
+
+      return data;
+    }
 
     default:
       return { error: `Unknown tool: ${name}` };

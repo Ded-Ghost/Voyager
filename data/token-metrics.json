@@ -83,11 +83,144 @@
       "outputTokens": 106,
       "cacheReadTokens": 0,
       "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:23:32.192Z",
+      "inputTokens": 2770,
+      "outputTokens": 32,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:23:48.884Z",
+      "inputTokens": 3443,
+      "outputTokens": 41,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:24:06.200Z",
+      "inputTokens": 3879,
+      "outputTokens": 194,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:35:28.805Z",
+      "inputTokens": 2785,
+      "outputTokens": 47,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:35:44.495Z",
+      "inputTokens": 2857,
+      "outputTokens": 59,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:41:15.064Z",
+      "inputTokens": 2773,
+      "outputTokens": 35,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:41:33.472Z",
+      "inputTokens": 3535,
+      "outputTokens": 136,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:41:52.021Z",
+      "inputTokens": 4328,
+      "outputTokens": 81,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:42:10.895Z",
+      "inputTokens": 5064,
+      "outputTokens": 257,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:43:38.907Z",
+      "inputTokens": 3041,
+      "outputTokens": 25,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:43:58.187Z",
+      "inputTokens": 3756,
+      "outputTokens": 99,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:56:33.958Z",
+      "inputTokens": 2769,
+      "outputTokens": 31,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T11:56:50.113Z",
+      "inputTokens": 3507,
+      "outputTokens": 138,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T12:03:11.273Z",
+      "inputTokens": 2772,
+      "outputTokens": 29,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T12:03:26.683Z",
+      "inputTokens": 3485,
+      "outputTokens": 113,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T12:08:28.141Z",
+      "inputTokens": 3335,
+      "outputTokens": 55,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T12:08:41.219Z",
+      "inputTokens": 3287,
+      "outputTokens": 159,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T12:40:45.330Z",
+      "inputTokens": 3198,
+      "outputTokens": 29,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-13T12:41:23.630Z",
+      "inputTokens": 3647,
+      "outputTokens": 26,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
     }
   ],
   "totals": {
-    "input": 47279,
-    "output": 2880,
+    "input": 111510,
+    "output": 4466,
     "cacheRead": 0,
     "cacheCreate": 0
   }

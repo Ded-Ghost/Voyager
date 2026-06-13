@@ -208,9 +208,126 @@ body::after{
   </div>
 </div>
 <script>
+const S={selected:null,muted:false,cmdCount:0,toolCount:0,history:[],routeMode:null};
+/* ═══════ WEBSOCKET — receive live events from VOYAGER backend ═══════ */
+let ws = null;
+function connectWS(){
+  ws = new WebSocket(`ws://${location.host}`);
+  ws.onopen = () => stream('Connected to VOYAGER backend','WS');
+  ws.onclose = () => { stream('Backend disconnected — retrying...','WS'); setTimeout(connectWS, 3000); };
+  ws.onerror = () => {};
+  ws.onmessage = (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch(e) { return; }
+    handleServerEvent(msg);
+  };
+}
+
+function handleServerEvent(msg){
+  switch(msg.type){
+    case 'replay':
+      (msg.events||[]).forEach(handleServerEvent);
+      break;
+    case 'itinerary_result':
+      renderItineraryResult(msg);
+      break;
+    case 'agent_status': {
+      const idx = AGENTS.findIndex(a=>a.nm.toLowerCase().replace(/[^a-z]/g,'')===String(msg.agent).toLowerCase().replace(/[^a-z]/g,''));
+      if(idx>=0) setAgent(idx, msg.status);
+      break;
+    }
+    case 'log':
+      stream(msg.message, msg.agent);
+      break;
+    case 'reply':
+      stream(msg.text,'VOYAGER');
+      break;
+    case 'alert':
+      stream(`⚠ ${msg.message}`,'ALERT');
+      break;
+    case 'sound':
+      // optional: trigger sound cues
+      break;
+    case 'agent_activated':
+      // generic agent-on signal from emit()
+      break;
+    default:
+      // weather / air_quality / earthquakes / state / tokens etc — handle as needed
+      break;
+  }
+}
+
+function findCityByName(name){
+  const n=(name||'').trim().toLowerCase();
+  return CITIES.find(c=>c.name.toLowerCase()===n || c.iata.toLowerCase()===n);
+}
+
+/* ═══════ ITINERARY RESULT RENDERER ═══════ */
+async function renderItineraryResult(data){
+  let html = `<div class="disr ${data.is_validated ? 'ok' : 'warn'}">
+    <div class="tag">${data.is_validated ? 'ITINERARY VALIDATED' : 'VALIDATION PENDING'}</div>
+  </div>`;
+  (data.current_itinerary||[]).forEach(leg=>{
+    html += `<div class="rt"><div class="rt-head">
+      <span class="rt-name">${leg.type==='flight'?'\u2708':'\uD83D\uDE86'} ${leg.operator} ${leg.identification_number}</span>
+      <span class="rt-status">${(leg.status||'').toUpperCase()}</span>
+    </div><div class="rt-info">${leg.from_location} \u2192 ${leg.to_location}<br>
+    Dep <span>${leg.departure_date} ${leg.departure_time}</span> &middot; Arr <span>${leg.arrival_date} ${leg.arrival_time}</span><br>
+    Cost <span>\u20B9${leg.cost}</span></div></div>`;
+  });
+  $('routes-head').textContent = '\u25A0 PLANNED ITINERARY';
+  $('routes').innerHTML = html;
+  stream(data.is_validated ? 'Itinerary validated' : 'Itinerary needs review','SWARM');
+
+  /* ── NEW: fetch weather for all unique cities in the itinerary route ── */
+  const cityNames = new Set();
+  (data.current_itinerary||[]).forEach(leg=>{
+    if(leg.from_location) cityNames.add(leg.from_location);
+    if(leg.to_location) cityNames.add(leg.to_location);
+  });
+  const routeCities = [...cityNames].map(findCityByName).filter(Boolean);
+
+  if(routeCities.length){
+    stream(`Scanning weather for ${routeCities.map(c=>c.iata).join(', ')}...`,'WTHR');
+    $('forecast').innerHTML = '<div class="empty">Scanning route weather\u2026</div>';
+    $('disruptions').innerHTML = '<div class="empty">Scanning route weather\u2026</div>';
+
+    const results = await Promise.all(routeCities.map(async c=>{
+      try{
+        const {w,a,wq} = await fetchWeatherAQI(c);
+        const naqi = calcNAQI(a,wq).naqi;
+        return {c, w, a, wq, naqi, alerts: analyzeDisruptions(c, w, naqi)};
+      }catch(e){ return {c, w:null, alerts:[{level:'warn',tag:'NO DATA',msg:'Feed unavailable'}]}; }
+    }));
+
+    // Forecast panel — show first city's forecast, with a compact list for others
+    renderForecast(results[0].c, results[0].w);
+
+    // AQI panel — first city's AQI
+    if(results[0].a) renderAQI(results[0].a, results[0].wq);
+
+    // Disruptions — combined, tagged by city
+    let dHtml = '';
+    results.forEach(r=>{
+      const relevant = r.alerts.filter(a=>a.level!=='ok');
+      if(!relevant.length){
+        dHtml += `<div class="disr ok"><div class="tag">${r.c.iata} CLEAR</div>No active disruptions</div>`;
+      }else{
+        relevant.forEach(a=>{
+          dHtml += `<div class="disr ${a.level}"><div class="tag">${r.c.iata} \u00B7 ${a.tag}</div>${a.msg}</div>`;
+        });
+      }
+    });
+    $('disruptions').innerHTML = dHtml;
+
+    stream('Route weather scan complete','WTHR');
+  }
+}
 /* ═══════ CITY DATA — positions from original tuned dashboard ═══════ */
 const CITIES=[
+  // --- Original Set ---
   {name:'Delhi',     iata:'DEL',station:'NDLS', lat:28.61,lon:77.21, x:112,y:100, side:'r'},
+  {name:'New Delhi', iata:'DEL',station:'NDLS', lat:28.61,lon:77.21, x:112,y:100, side:'r'},
   {name:'Mumbai',    iata:'BOM',station:'BCT',  lat:19.08,lon:72.88, x:60, y:208, side:'l'},
   {name:'Bengaluru', iata:'BLR',station:'SBC',  lat:12.97,lon:77.59, x:117,y:277, side:'l'},
   {name:'Chennai',   iata:'MAA',station:'MAS',  lat:13.08,lon:80.27, x:150,y:276, side:'r'},
@@ -220,8 +337,6 @@ const CITIES=[
   {name:'Goa',       iata:'GOI',station:'MAO',  lat:15.30,lon:73.81, x:75, y:251, side:'l'},
   {name:'Ahmedabad', iata:'AMD',station:'ADI',  lat:23.02,lon:72.57, x:56, y:164, side:'l'},
   {name:'Pune',      iata:'PNQ',station:'PUNE', lat:18.52,lon:73.85, x:72, y:214, side:'r'},
-  /* Added cities — positions derived via linear fit to the India SVG path
-     (x \u2248 56 + (lon-72.57)*12.22, y \u2248 100 + (28.61-lat)*11.3) */
   {name:'Lucknow',   iata:'LKO',station:'LKO',  lat:26.85,lon:80.95, x:158,y:120, side:'b'},
   {name:'Jaipur',    iata:'JAI',station:'JP',   lat:26.91,lon:75.79, x:95, y:119, side:'l'},
   {name:'Chandigarh',iata:'IXC',station:'CDG',  lat:30.73,lon:76.78, x:107,y:76,  side:'r'},
@@ -232,14 +347,81 @@ const CITIES=[
   {name:'Nagpur',    iata:'NAG',station:'NGP',  lat:21.15,lon:79.09, x:136,y:184, side:'r'},
   {name:'Surat',     iata:'STV',station:'ST',   lat:21.17,lon:72.83, x:59, y:184, side:'l'},
   {name:'Indore',    iata:'IDR',station:'INDB', lat:22.72,lon:75.86, x:96, y:167, side:'b'},
+
+  // --- Extended North Hubs ---
+  {name:'Amritsar',  iata:'ATQ',station:'ASR',  lat:31.63,lon:74.87, x:84, y:66,  side:'l'},
+  {name:'Dehradun',  iata:'DED',station:'DDN',  lat:30.32,lon:78.03, x:123,y:81,  side:'r'},
+  {name:'Srinagar',  iata:'SXR',station:'JAT',  lat:34.08,lon:74.80, x:83, y:38,  side:'r'},
+  {name:'Jammu',     iata:'IXJ',station:'JAT',  lat:32.73,lon:74.86, x:84, y:53,  side:'l'},
+  {name:'Agra',      iata:'AGR',station:'AGC',  lat:27.18,lon:78.04, x:123,y:116, side:'r'},
+  {name:'Kanpur',    iata:'KNU',station:'CNB',  lat:26.45,lon:80.33, x:151,y:124, side:'l'},
+  {name:'Allahabad', iata:'IXD',station:'PRYJ', lat:25.45,lon:81.85, x:169,y:136, side:'r'},
+  {name:'Jodhpur',   iata:'JDH',station:'JU',   lat:26.24,lon:73.02, x:61, y:127, side:'l'},
+  {name:'Udaipur',   iata:'UDR',station:'UDZ',  lat:24.58,lon:73.71, x:70, y:146, side:'l'},
+
+  // --- Extended West & Central Hubs ---
+  {name:'Vadodara',  iata:'BDQ',station:'BRC',  lat:22.30,lon:73.18, x:63, y:171, side:'r'},
+  {name:'Rajkot',    iata:'RAJ',station:'RJT',  lat:22.30,lon:70.80, x:34, y:171, side:'l'},
+  {name:'Nashik',    iata:'ISK',station:'NK',   lat:19.99,lon:73.79, x:71, y:197, side:'l'},
+  {name:'Aurangabad',iata:'IXU',station:'AWB',  lat:19.88,lon:75.34, x:90, y:199, side:'r'},
+  {name:'Gwalior',   iata:'GWL',station:'GWL',  lat:26.22,lon:78.18, x:125,y:127, side:'r'},
+  {name:'Jabalpur',  iata:'JLR',station:'JBP',  lat:23.17,lon:79.95, x:146,y:161, side:'r'},
+  {name:'Raipur',    iata:'RPR',station:'R',    lat:21.25,lon:81.63, x:167,y:183, side:'r'},
+
+  // --- Extended East Hubs ---
+  {name:'Ranchi',    iata:'IXR',station:'RNC',  lat:23.34,lon:85.31, x:212,y:160, side:'r'},
+  {name:'Bhubaneswar',iata:'BBI',station:'BBS', lat:20.27,lon:85.84, x:218,y:194, side:'r'},
+  {name:'Puri',      iata:'BBI',station:'PURI', lat:19.81,lon:85.83, x:218,y:199, side:'r'},
+  {name:'Gaya',      iata:'GAY',station:'GAYA', lat:24.79,lon:85.00, x:208,y:143, side:'l'},
+
+  // --- Extended South Hubs ---
+  {name:'Visakhapatnam',iata:'VTZ',station:'VSKP',lat:17.68,lon:83.21,x:186,y:224, side:'r'},
+  {name:'Vijayawada',iata:'VGA',station:'BZA',  lat:16.50,lon:80.64, x:155,y:237, side:'l'},
+  {name:'Trivandrum',iata:'TRV',station:'TVC',  lat:8.52, lon:76.93, x:109,y:327, side:'l'},
+  {name:'Coimbatore',iata:'CJB',station:'CBE',  lat:11.01,lon:76.95, x:110,y:299, side:'l'},
+  {name:'Madurai',   iata:'IXM',station:'MDU',  lat:9.92, lon:78.11, x:124,y:311, side:'r'},
+  {name:'Tirupati',  iata:'TIR',station:'TPTY', lat:13.62,lon:79.41, x:140,y:269, side:'l'},
+  {name:'Tiruchirappalli',iata:'TRZ',station:'TPJ',lat:10.79,lon:78.70,x:131,y:301,side:'r'},
+  {name:'Kozhikode', iata:'CCJ',station:'CLT',  lat:11.25,lon:75.78, x:95, y:296, side:'l'},
+  {name:'Mangalore', iata:'IXE',station:'MAJN', lat:12.91,lon:74.85, x:84, y:277, side:'l'},
+  {name:'Puducherry',iata:'PNY',station:'PDY',  lat:11.94,lon:79.80, x:144,y:288, side:'r'},
+
+  // --- Extended Northeast Hubs ---
+  {name:'Agartala',  iata:'IXA',station:'AGTL', lat:23.83,lon:91.28, x:285,y:154, side:'r'},
+  {name:'Dibrugarh', iata:'DIB',station:'DBRG', lat:27.47,lon:94.91, x:329,y:113, side:'r'},
+  {name:'Imphal',    iata:'IMF',station:'GHY',  lat:24.81,lon:93.94, x:317,y:143, side:'r'},
+  {name:'Shillong',  iata:'SHL',station:'GHY',  lat:25.57,lon:91.88, x:292,y:134, side:'l'}
 ];
+
+
+const CITY_MAP = Object.fromEntries(
+  CITIES.map(c => [c.iata, c])
+);
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+
+  return R * 2 * Math.atan2(
+    Math.sqrt(a),
+    Math.sqrt(1 - a)
+  );
+}
 
 const AGENTS=[
   {nm:'ORCHESTRATOR',      rl:'Central command',     st:'idle'},
   {nm:'WEATHER MONITOR',   rl:'Conditions / AQI',    st:'idle'},
   {nm:'RE-ROUTER',         rl:'Disruption response',  st:'standby'},
-  {nm:'ITINERARY PLANNER', rl:'Route intelligence',   st:'partner'},
-  {nm:'BOOKING & LOGISTICS',rl:'Rail / air options',  st:'partner'},
+  {nm:'ITINERARY PLANNER', rl:'Route intelligence',   st:'idle'},
+  {nm:'BOOKING & LOGISTICS',rl:'Rail / air options',  st:'standby'},
 ];
 /* ═══════ INDIA SVG PATH ═══════ */
 const INDIA_PATH="M116.16,22.74L120.95,23.01L132.48,17.23L138.43,17.07L141.22,18.1L142.83,21.01L146.43,21.42L147.11,23.45L148.95,21.73L151.46,22.84L147.35,31.55L143.84,32.43L143.93,34.1L140.45,34.39L141.65,36.83L139.16,39.49L132.86,39.83L135.34,43.61L133.11,43.8L133.51,46.52L135.55,48.55L139.22,48.67L138.28,50.8L140.93,54.46L133.85,58.31L131.54,56.69L131.06,54.24L126.85,56.11L131.55,62.17L131.53,69.86L135.45,68.25L139.45,73.13L144.81,73.71L149.35,76.07L149.11,78.13L159.02,81.89L150.9,87.52L151.42,89.24L149.4,90.96L150.07,93.65L148.21,94.79L147.36,97.95L152.75,101.03L153.38,99.49L161.21,103.18L162.52,105.75L164.09,105.44L169.44,108.87L171.7,108.12L176.32,110.88L179.49,110.39L179.82,112.88L185.34,113.42L186.92,114.82L187.79,113.13L193.59,114.64L193.39,113.52L197.09,112.71L202.82,114.72L203.1,118.03L209.78,120.02L210.04,121.28L215.11,119.98L217.85,123.43L223.73,122.85L228.58,125.07L232.74,123.22L232.98,124.75L236.02,125.92L242.7,124.34L244.17,125.76L246.34,121.5L243.91,117.2L246.47,109.62L245.51,108.18L251.84,105.92L254.91,108.88L253.38,112.15L255.23,115.27L253.17,116.95L257.9,120.72L260.9,120.1L266.78,121.91L272.81,119.67L277.23,121.15L289.1,120.73L291.57,119.45L293.57,120.27L293.34,115.63L294.39,115.31L293.08,113.12L288.63,113.09L287.54,111.42L288.52,109.96L291.96,110.46L295.85,108.52L298.44,109.59L301.78,107.5L301.15,105.55L304.13,104.99L310.28,99.78L313.78,99.75L320.47,96.74L321.76,95.67L320.87,94.25L324.93,92.63L332.7,95.2L342.35,91.65L345.39,93.8L343.97,95.55L345.72,94.69L349.41,98.97L346.66,101.55L347.77,102.41L347.71,101.14L350.38,100.35L352.98,103.28L358.29,104.95L358.72,107.13L358.37,108.64L352.55,111.71L355.58,117.52L350.29,114.35L344.48,115.4L331.31,122.88L330.25,124.76L331.76,129.01L328.25,134.74L325.03,136.67L324.31,138.71L326.33,139.7L326.0,141.86L319.2,154.14L314.29,152.36L311.25,153.07L309.09,151.5L310.43,155.96L309.79,162.19L308.67,163.63L306.63,163.21L307.55,172.02L303.94,175.66L301.42,173.25L301.18,174.87L300.23,175.25L296.3,155.59L293.46,156.42L292.36,155.42L292.52,158.31L289.98,160.32L290.88,162.67L288.23,164.42L285.7,160.5L284.91,162.55L282.63,156.82L285.25,151.21L287.83,151.6L288.8,149.78L289.98,150.82L289.77,149.63L291.68,150.88L291.9,148.61L294.88,147.69L296.5,144.1L295.71,142.26L298.96,142.52L298.07,140.79L293.63,139.01L273.86,139.5L266.5,137.82L267.09,130.46L264.56,127.15L263.32,130.19L260.62,129.75L258.17,128.28L257.34,125.35L255.11,125.23L256.89,127.11L252.2,126.87L253.16,125.91L248.94,122.76L248.11,124.4L250.47,125.78L246.23,128.17L245.37,131.93L247.36,132.0L250.66,135.39L253.96,135.22L256.37,138.14L255.33,139.26L249.46,138.75L248.94,141.75L245.75,141.85L244.17,144.88L248.14,148.11L253.04,149.27L253.46,152.62L251.09,153.98L250.88,156.38L253.84,158.1L252.84,160.83L256.22,161.28L254.38,163.61L257.47,173.25L256.1,176.18L257.49,179.09L255.29,179.17L254.56,177.52L254.43,179.33L252.88,178.64L253.57,174.84L251.87,174.14L250.84,177.08L250.39,175.59L249.66,176.18L249.57,179.38L249.31,179.44L249.44,179.25L249.2,178.91L249.37,178.37L249.24,178.18L248.91,179.61L248.97,178.16L247.42,178.01L247.08,179.95L246.61,173.32L246.27,172.84L244.31,172.48L246.39,173.82L244.66,174.84L241.68,178.43L232.99,180.23L230.79,182.47L229.75,184.75L231.55,188.31L230.25,188.83L232.71,189.44L228.59,191.54L229.28,193.33L227.88,194.26L229.41,193.67L224.2,198.12L214.05,201.01L207.92,204.45L196.83,216.67L189.84,219.87L185.67,224.79L174.58,231.02L174.56,236.42L167.31,239.29L161.91,239.44L157.89,246.01L154.71,243.99L149.66,246.44L147.03,253.2L148.83,258.8L147.98,264.58L150.67,273.41L148.35,282.68L143.5,291.61L144.99,306.97L137.83,307.54L133.02,316.28L133.74,317.93L136.55,318.61L125.28,321.57L122.89,328.85L116.54,332.23L109.98,329.11L104.29,322.9L105.76,321.84L104.2,322.52L101.98,317.65L100.93,310.12L96.04,297.79L92.05,291.17L87.88,287.86L83.29,278.44L82.03,269.41L78.43,262.19L79.53,262.59L76.68,257.28L72.16,253.09L70.65,246.67L66.59,242.14L65.5,238.46L66.74,238.08L65.53,238.29L64.89,236.97L66.43,237.1L64.91,235.99L65.92,235.79L64.99,231.0L63.35,228.1L64.21,228.54L64.67,228.16L60.2,217.71L62.26,218.55L62.07,216.56L60.06,216.24L59.88,214.07L61.09,214.89L59.27,212.32L60.27,210.84L60.98,211.37L60.78,211.67L61.02,212.0L61.22,212.09L60.88,210.39L59.9,210.03L61.84,208.64L60.84,206.73L60.5,208.45L58.65,210.08L58.41,205.43L59.94,205.62L57.9,203.68L59.66,202.95L57.73,202.9L56.81,199.46L60.17,189.01L57.77,186.31L59.17,185.92L57.44,185.3L58.44,184.26L56.62,185.38L56.6,183.96L56.9,183.74L57.29,184.11L57.86,184.06L56.11,182.92L60.14,178.66L55.36,178.81L57.96,175.3L55.01,175.27L55.96,172.69L58.1,173.04L59.94,172.01L55.34,171.55L54.07,172.69L52.79,171.52L51.03,174.75L51.83,175.86L51.64,175.63L51.4,175.52L50.81,175.46L52.55,179.22L50.17,184.04L34.44,189.78L26.31,185.67L11.41,171.54L13.04,169.6L14.98,172.11L18.43,170.2L20.35,171.35L21.09,169.64L22.07,170.51L26.53,168.88L29.87,164.04L27.08,163.08L27.14,164.24L23.0,164.69L20.88,166.67L14.59,165.56L13.13,164.25L12.99,164.66L12.38,163.9L12.09,164.23L11.99,163.8L11.75,164.07L9.23,162.8L7.71,161.81L8.75,162.29L7.07,161.14L8.29,160.3L5.19,157.96L9.89,153.79L6.27,155.29L5.21,154.46L4.27,157.14L2.1,156.75L4.27,155.47L2.31,155.51L4.36,152.71L9.19,152.74L9.86,148.88L10.57,150.02L11.54,149.0L19.46,149.12L24.71,150.49L31.26,147.67L31.38,149.58L33.12,149.98L38.07,147.88L36.59,147.4L37.78,144.64L32.52,136.65L32.46,133.2L27.69,133.07L25.62,130.54L26.53,123.61L18.43,121.44L19.36,116.48L28.95,107.12L31.6,107.14L35.05,110.58L47.57,107.7L53.58,98.57L60.36,95.65L65.86,85.29L72.89,82.44L72.42,79.14L81.72,72.55L79.45,71.9L81.21,68.58L79.16,65.31L80.63,63.34L89.97,59.55L86.66,56.71L81.54,56.53L81.83,52.59L77.76,53.41L68.76,49.75L68.27,40.74L65.88,35.25L66.55,33.09L69.03,33.16L69.9,30.89L73.77,29.46L74.83,26.88L70.17,25.73L70.6,22.3L65.96,22.25L62.56,20.08L63.19,18.51L55.75,18.61L55.51,14.31L60.62,11.55L61.77,9.06L71.52,8.75L69.19,6.52L73.72,7.52L81.63,4.56L84.23,6.32L87.2,5.26L90.52,6.11L91.04,8.7L94.4,8.43L97.97,11.97L106.4,15.13L107.87,18.52L114.08,20.1L116.16,22.74Z";
@@ -384,35 +566,247 @@ const ROUTES={
   {al:'IndiGo 6E',deps:['08:00','13:30','18:30'],dur:'1h 30m',freq:'8/day',low:3000,high:7000,cost:'\u20B93K-7K'}],
  trains:[],drive:{dist:'840 km',dur:'~14h',via:'NH-48'}},
 };
-function routeKey(a,b){const k1=a+'-'+b,k2=b+'-'+a;return ROUTES[k1]?k1:ROUTES[k2]?k2:null;}
-/* Multi-hop: find 1-stop connecting routes via hub city */
-function findConnecting(fromIata,toIata){
-  const direct=routeKey(fromIata,toIata);
-  if(direct)return{type:'direct',key:direct};
-  // Try every city as a hub
-  const options=[];
-  for(const hub of CITIES){
-    if(hub.iata===fromIata||hub.iata===toIata)continue;
-    const leg1=routeKey(fromIata,hub.iata), leg2=routeKey(hub.iata,toIata);
-    if(leg1&&leg2){
-      const r1=ROUTES[leg1],r2=ROUTES[leg2];
-      // Pick fastest option per leg (flight first, then train)
-      const best1=r1.flights?.[0]||r1.trains?.[0];
-      const best2=r2.flights?.[0]||r2.trains?.[0];
-      if(best1&&best2){
-        const dur1=parseDur(best1.dur),dur2=parseDur(best2.dur);
-        options.push({type:'connecting',hub:hub.iata,hubName:hub.name,leg1key:leg1,leg2key:leg2,best1,best2,totalMin:dur1+dur2+90}); // +90min layover
+
+function buildGraph(k = 5) {
+  const graph = {};
+
+  for (const city of CITIES) {
+    graph[city.iata] = [];
+
+    const nearest = CITIES
+      .filter(c => c.iata !== city.iata)
+      .map(c => ({
+        iata: c.iata,
+        distance: haversine(
+          city.lat,
+          city.lon,
+          c.lat,
+          c.lon
+        )
+      }))
+      .sort((a,b)=>a.distance-b.distance)
+      .slice(0,k);
+
+    nearest.forEach(n=>{
+      graph[city.iata].push({
+        to:n.iata,
+        cost:n.distance
+      });
+    });
+  }
+
+  return graph;
+}
+
+const GRAPH = buildGraph(5);
+Object.keys(ROUTES).forEach(key => {
+  const [from,to] = key.split('-');
+
+  if (!GRAPH[from]) GRAPH[from] = [];
+  if (!GRAPH[to]) GRAPH[to] = [];
+
+  GRAPH[from].push({
+    to,
+    cost:1,
+    direct:true
+  });
+
+  GRAPH[to].push({
+    to:from,
+    cost:1,
+    direct:true
+  });
+});
+
+function findRoute(start,end){
+  const dist = {};
+  const prev = {};
+  const visited = new Set();
+
+  Object.keys(GRAPH).forEach(node=>{
+    dist[node] = Infinity;
+  });
+
+  dist[start] = 0;
+
+  while(true){
+
+    let current = null;
+    let best = Infinity;
+
+    for(const node in dist){
+      if(!visited.has(node) && dist[node] < best){
+        best = dist[node];
+        current = node;
+      }
+    }
+
+    if(!current) break;
+    if(current === end) break;
+
+    visited.add(current);
+
+    for(const edge of GRAPH[current]){
+
+      const alt = dist[current] + edge.cost;
+
+      if(alt < dist[edge.to]){
+        dist[edge.to] = alt;
+        prev[edge.to] = current;
       }
     }
   }
-  options.sort((a,b)=>a.totalMin-b.totalMin);
-  return options.length?options[0]:null;
+
+  const path = [];
+
+  let cur = end;
+
+  while(cur){
+    path.unshift(cur);
+    cur = prev[cur];
+  }
+
+  return path;
+}
+
+function getRouteInfo(from,to){
+
+  const direct =
+    ROUTES[`${from}-${to}`] ||
+    ROUTES[`${to}-${from}`];
+
+  if(direct){
+    return {
+      type:'direct',
+      path:[from,to],
+      data:direct
+    };
+  }
+
+  const path = findRoute(from,to);
+
+  return {
+    type:'connected',
+    path
+  };
+}
+
+function routeKey(a,b){const k1=a+'-'+b,k2=b+'-'+a;return ROUTES[k1]?k1:ROUTES[k2]?k2:null;}
+/* Multi-hop: find 1-stop connecting routes via hub city */
+function findConnecting(fromIata,toIata){
+
+  const direct = routeKey(fromIata,toIata);
+
+  if(direct){
+    return {
+      type:'direct',
+      key:direct
+    };
+  }
+
+  const fromCity = CITIES.find(c=>c.iata===fromIata);
+  const toCity   = CITIES.find(c=>c.iata===toIata);
+
+  const options = [];
+
+  // Existing route intelligence first
+  for(const hub of CITIES){
+
+    if(
+      hub.iata===fromIata ||
+      hub.iata===toIata
+    ) continue;
+
+    const leg1 = routeKey(fromIata,hub.iata);
+    const leg2 = routeKey(hub.iata,toIata);
+
+    if(leg1 && leg2){
+
+      const r1 = ROUTES[leg1];
+      const r2 = ROUTES[leg2];
+
+      const best1 =
+        r1.flights?.[0] ||
+        r1.trains?.[0];
+
+      const best2 =
+        r2.flights?.[0] ||
+        r2.trains?.[0];
+
+      if(best1 && best2){
+
+        options.push({
+          type:'connecting',
+          hub:hub.iata,
+          hubName:hub.name,
+          leg1key:leg1,
+          leg2key:leg2,
+          best1,
+          best2,
+          totalMin:
+            parseDur(best1.dur) +
+            parseDur(best2.dur) +
+            90
+        });
+      }
+    }
+  }
+
+  if(options.length){
+
+    options.sort(
+      (a,b)=>a.totalMin-b.totalMin
+    );
+
+    return options[0];
+  }
+
+  // ---------- FALLBACK ----------
+  // NEVER FAIL
+
+  let nearestHub = null;
+  let bestDistance = Infinity;
+
+  for(const hub of CITIES){
+
+    if(
+      hub.iata===fromIata ||
+      hub.iata===toIata
+    ) continue;
+
+    const d =
+      haversine(
+        fromCity.lat,
+        fromCity.lon,
+        hub.lat,
+        hub.lon
+      ) +
+      haversine(
+        hub.lat,
+        hub.lon,
+        toCity.lat,
+        toCity.lon
+      );
+
+    if(d < bestDistance){
+      bestDistance = d;
+      nearestHub = hub;
+    }
+  }
+
+  return {
+    type:'connecting',
+    hub:nearestHub.iata,
+    hubName:nearestHub.name,
+    generated:true,
+    totalMin:Math.round(bestDistance/8)
+  };
 }
 function parseDur(s){const m=s.match(/(\d+)h\s*(\d+)?m?/);return m?(parseInt(m[1])*60+parseInt(m[2]||0)):999;}
 function formatMin(m){const h=Math.floor(m/60);return h+'h '+(m%60)+'m';}
 
 /* ═══════ STATE ═══════ */
-const S={selected:null,muted:false,cmdCount:0,toolCount:0,history:[],routeMode:null};
+//const S={selected:null,muted:false,cmdCount:0,toolCount:0,history:[],routeMode:null};
 const $=id=>document.getElementById(id);
 const SVGNS="http://www.w3.org/2000/svg";
 const el=(t,a={})=>{const e=document.createElementNS(SVGNS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
@@ -758,6 +1152,27 @@ function renderRouteDetail(ai,bi,result,opts={},live=null){
     if(mode==='all'&&r.drive)html+=driveCard(r.drive);
   }else if(result.type==='connecting'){
     $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+result.hub+' \u2192 '+B.iata;
+    if(result.generated){
+
+      $('routes-head').textContent =
+        '■ ' + A.iata + ' → ' +
+        result.hub + ' → ' +
+        B.iata;
+
+      html += `
+        <div class="disr warn">
+          <div class="tag">GENERATED ROUTE</div>
+          No direct corridor found in reference database.<br>
+          Suggested routing via
+          <span style="color:var(--txt)">
+            ${result.hubName} (${result.hub})
+          </span>
+        </div>
+      `;
+
+      $('routes').innerHTML = html;
+      return;
+    }
     const note=result.forcedVia?'User-specified routing':'Best connection algorithm';
     html+=`<div class="disr warn"><div class="tag">NO DIRECT ROUTE</div>${note} via <span style="color:var(--txt)">${result.hubName} (${result.hub})</span><br>Est. total <span style="color:var(--txt)">${formatMin(result.totalMin)}</span> incl. 1h 30m layover</div>`;
     const r1=ROUTES[result.leg1key],r2=ROUTES[result.leg2key];
@@ -963,6 +1378,7 @@ function parseIntent(raw){
   if(t==='mute'||t==='unmute')return{kind:'mute'};
   if(t==='clear'||t==='reset'||t==='abort')return{kind:'clear'};
   if(t==='scan'||t==='status'||t==='all')return{kind:'scan'};
+  if(/\b(plan|build|create|generate|want)\b.*\b(trip|itinerary|journey)\b/.test(t))return{kind:'itinerary',raw};
   const cities=findAllCities(t);
   /* Intent keywords */
   const wantsRoute=/\b(route|trip|travel|go|going|reach|reaching|fly|train|from|journey|how to get|way to|path to)\b/.test(t);
@@ -1011,6 +1427,16 @@ function runCommand(raw){
   $('cmd-input').value='';
   const intent=parseIntent(text);
   switch(intent.kind){
+    case 'itinerary':
+      if(ws && ws.readyState===WebSocket.OPEN){
+        ws.send(JSON.stringify({type:'command', text}));
+        stream(`Sent to VOYAGER: "${text}"`,'YOU');
+        pushHistory(text);
+        S.cmdCount++;$('tel-cmd').textContent=S.cmdCount;
+      }else{
+        stream('Backend not connected — cannot plan itinerary');
+      }
+      return;
     case 'route':
       routeCommand(intent.from.iata,intent.to.iata,{prefer:intent.prefer,mode:intent.mode,via:intent.via});return;
     case 'weather':case 'aqi':case 'delays':case 'inspect':
@@ -1039,14 +1465,22 @@ function runCommand(raw){
     case 'mute':toggleMute();return;
     case 'clear':if(S.selected!=null)selectCity(S.selected);stream('Cleared');return;
     default:
-      stream(`Did not understand: "${text}" \u2014 try "best route X to Y" or "weather in X" or type "help"`);
+      //stream(`Did not understand: "${text}" \u2014 try "best route X to Y" or "weather in X" or type "help"`);
+      if(ws && ws.readyState===WebSocket.OPEN){
+        ws.send(JSON.stringify({type:'command', text}));
+        stream(`Sent to VOYAGER: "${text}"`,'YOU');
+        pushHistory(text);
+        S.cmdCount++;$('tel-cmd').textContent=S.cmdCount;
+      }else{
+        stream(`Did not understand: "${text}" \u2014 try "best route X to Y" or "weather in X" or type "help"`);
+      }
   }
 }
 function abort(){window.speechSynthesis?.cancel();$('conn-layer').innerHTML='';S.selected=null;S.routeMode=null;syncQI();AGENTS.forEach((_,i)=>setAgent(i,AGENTS[i].st));stream('\u25A0 ABORT \u2014 all agents reset');}
 
 /* ═══════ INIT ═══════ */
 function init(){
-  buildMap();buildLeft();
+  buildMap();buildLeft();connectWS();
   stream('VOYAGER online \u2014 5 agents linked');stream('Monitoring 10 Indian sectors');
   $('cmd-exec').addEventListener('click',()=>runCommand($('cmd-input').value));
   $('cmd-input').addEventListener('keydown',e=>{if(e.key==='Enter')runCommand($('cmd-input').value);});
