@@ -512,37 +512,19 @@ function subIndex(p,conc){const bp=NAQI_BP[p];if(!bp||conc==null||isNaN(conc))re
 /* Compute 24h average from hourly array (last 24 non-null values) */
 function avg24(arr){if(!arr)return null;const vals=arr.filter(v=>v!=null).slice(-24);return vals.length>=6?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
 function calcNAQI(aqData, waqi){
-  /* Prefer WAQI station data — uses real CPCB/SAFAR ground sensors */
-  if(waqi && waqi.status==='ok' && waqi.data){
-    const d=waqi.data;
-    /* WAQI returns final AQI as d.aqi (US EPA scale). We re-derive NAQI from raw iaqi pollutants for India accuracy */
-    const iaqi=d.iaqi||{};
-    const avgs={
-      pm2_5:iaqi.pm25?.v ?? null,
-      pm10: iaqi.pm10?.v ?? null,
-      no2:  iaqi.no2?.v ?? null,
-      so2:  iaqi.so2?.v ?? null,
-      co:   iaqi.co?.v ?? null,
-      o3:   iaqi.o3?.v ?? null,
-    };
-    const pollutantNames={pm2_5:'PM2.5',pm10:'PM10',no2:'NO\u2082',so2:'SO\u2082',co:'CO',o3:'O\u2083'};
-    let maxSub=0,dominant=null;
-    for(const key in avgs){
-      const si=subIndex(key,avgs[key]);
-      if(si!=null&&si>maxSub){maxSub=si;dominant=pollutantNames[key]||key;}
-    }
-    return{naqi:maxSub||null,dominant,avgs,source:'CPCB station: '+(d.city?.name||'')};
-  }
-  /* Fallback: Open-Meteo CAMS model data */
-  if(!aqData)return{naqi:null,dominant:null,avgs:{},source:'No data'};
-  const hr=aqData.hourly;const cur=aqData.current;
+  /* IMPORTANT: WAQI's iaqi.*.v values are themselves AQI sub-indices (0-500 scale),
+   * NOT raw concentrations. Feeding them into our concentration-based NAQI_BP table
+   * causes unit-mismatch blowups (e.g. CO sub-index ~50 misread as 50 mg/m3 => NAQI 500).
+   * So: NAQI is computed ONLY from Open-Meteo's real µg/m3 concentrations (24h avg).
+   * WAQI is used purely as a reference cross-check (station name + its own AQI figure). */
+  const hr=aqData?.hourly;const cur=aqData?.current;
   const avgs={
-    pm2_5: avg24(hr?.pm2_5)  ?? cur?.pm2_5,
-    pm10:  avg24(hr?.pm10)   ?? cur?.pm10,
-    no2:   avg24(hr?.nitrogen_dioxide) ?? cur?.nitrogen_dioxide,
-    so2:   avg24(hr?.sulphur_dioxide)  ?? cur?.sulphur_dioxide,
+    pm2_5: avg24(hr?.pm2_5)  ?? cur?.pm2_5  ?? null,
+    pm10:  avg24(hr?.pm10)   ?? cur?.pm10   ?? null,
+    no2:   avg24(hr?.nitrogen_dioxide) ?? cur?.nitrogen_dioxide ?? null,
+    so2:   avg24(hr?.sulphur_dioxide)  ?? cur?.sulphur_dioxide  ?? null,
     co:    avg24(hr?.carbon_monoxide)!=null ? avg24(hr.carbon_monoxide)/1000 : (cur?.carbon_monoxide!=null?cur.carbon_monoxide/1000:null),
-    o3:    avg24(hr?.ozone)   ?? cur?.ozone,
+    o3:    avg24(hr?.ozone)   ?? cur?.ozone ?? null,
   };
   const pollutantNames={pm2_5:'PM2.5',pm10:'PM10',no2:'NO\u2082',so2:'SO\u2082',co:'CO',o3:'O\u2083'};
   let maxSub=0,dominant=null;
@@ -550,7 +532,12 @@ function calcNAQI(aqData, waqi){
     const si=subIndex(key,avgs[key]);
     if(si!=null&&si>maxSub){maxSub=si;dominant=pollutantNames[key]||key;}
   }
-  return{naqi:maxSub||null,dominant,avgs,source:'CAMS satellite model (24h avg)'};
+  let refLine=null;
+  if(waqi && waqi.status==='ok' && waqi.data){
+    const d=waqi.data;
+    if(typeof d.aqi==='number') refLine=`WAQI station ${d.city?.name||''}: ${d.aqi} (US AQI scale, for reference)`;
+  }
+  return{naqi:maxSub||null,dominant,avgs,source:'Open-Meteo CAMS model \u00B7 24h avg (\u00B5g/m\u00B3)',ref:refLine};
 }
 function naqiLabel(v){if(v==null)return['Unknown',0];for(const c of NAQI_CATS)if(v<=c.hi)return[c.label,c.idx];return['Severe',5];}
 
@@ -604,9 +591,9 @@ function renderForecast(c,w){
     <div class="fc-detail">${desc} &middot; <span>${c.name}</span><br>HI <span>${mx!=null?Math.round(mx):'--'}&deg;</span> / LO <span>${mn!=null?Math.round(mn):'--'}&deg;</span><br>HUM <span>${cur.relative_humidity_2m}%</span> &middot; WIND <span>${Math.round(cur.wind_speed_10m)} km/h</span>${cur.visibility!=null?' &middot; VIS <span>'+(cur.visibility>=1000?(cur.visibility/1000).toFixed(1)+'km':cur.visibility+'m')+'</span>':''}</div>`;
 }
 function renderAQI(a, wq){
-  const{naqi:v,dominant,avgs,source}=calcNAQI(a,wq);if(v==null){$('aqi').innerHTML='<div class="empty">No data</div>';return;}
+  const{naqi:v,dominant,avgs,source,ref}=calcNAQI(a,wq);if(v==null){$('aqi').innerHTML='<div class="empty">No data</div>';return;}
   const[lab,idx]=naqiLabel(v),bars=[0,1,2,3,4,5].map(i=>`<div class="${i<=idx?'on'+idx:''}"></div>`).join('');
-  $('aqi').innerHTML=`<div class="aqi-row"><span class="n">${v}</span><span class="l">${lab}</span></div><div class="aqi-bar">${bars}</div><div class="aqi-stops"><span>Good</span><span>Sat</span><span>Mod</span><span>Poor</span><span>V.Poor</span><span>Severe</span></div><div class="fc-detail" style="margin-top:6px">Dominant: <span>${dominant||'--'}</span> &middot; <span style="opacity:.7">${source}</span><br>PM2.5 <span>${avgs.pm2_5!=null?(+avgs.pm2_5).toFixed(1):'--'}</span> &middot; PM10 <span>${avgs.pm10!=null?(+avgs.pm10).toFixed(1):'--'}</span> &micro;g/m&sup3;<br>NO\u2082 <span>${avgs.no2!=null?(+avgs.no2).toFixed(0):'--'}</span> &middot; SO\u2082 <span>${avgs.so2!=null?(+avgs.so2).toFixed(0):'--'}</span> &middot; O\u2083 <span>${avgs.o3!=null?(+avgs.o3).toFixed(0):'--'}</span></div>`;
+  $('aqi').innerHTML=`<div class="aqi-row"><span class="n">${v}</span><span class="l">${lab}</span></div><div class="aqi-bar">${bars}</div><div class="aqi-stops"><span>Good</span><span>Sat</span><span>Mod</span><span>Poor</span><span>V.Poor</span><span>Severe</span></div><div class="fc-detail" style="margin-top:6px">Dominant: <span>${dominant||'--'}</span><br>${source}<br>PM2.5 <span>${avgs.pm2_5!=null?(+avgs.pm2_5).toFixed(1):'--'}</span> &middot; PM10 <span>${avgs.pm10!=null?(+avgs.pm10).toFixed(1):'--'}</span> &micro;g/m&sup3;<br>NO\u2082 <span>${avgs.no2!=null?(+avgs.no2).toFixed(0):'--'}</span> &middot; SO\u2082 <span>${avgs.so2!=null?(+avgs.so2).toFixed(0):'--'}</span> &middot; O\u2083 <span>${avgs.o3!=null?(+avgs.o3).toFixed(0):'--'}</span> &middot; CO <span>${avgs.co!=null?(+avgs.co).toFixed(2):'--'}</span> mg/m&sup3;${ref?'<br><span style="opacity:.6">'+ref+'</span>':''}</div>`;
 }
 function renderDisruptions(alerts){
   $('disruptions').innerHTML=alerts.map(a=>`<div class="disr ${a.level}"><div class="tag">${a.tag}</div>${a.msg}</div>`).join('');
