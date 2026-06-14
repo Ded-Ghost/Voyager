@@ -51,7 +51,6 @@ The Orchestrator calls the swarm via a `run_itinerary_swarm` tool whenever a use
 | **Dynamic Re-Router** | Activates on disruptions. Surfaces alternative Indian routes (trains, alternate flights). | ✅ Active |
 | **Itinerary Planner** | FastAPI swarm — `FlightAgent` + `RailAgent` draft multi-modal legs from natural language. | ✅ Active |
 | **Validator** | `ValidatorAgent` cross-checks timeline/route consistency, triggers self-healing retries. | ✅ Active |
-| **Booking & Logistics** | Live flight/train data proxy (AviationStack + IRCTC RapidAPI), with reference-schedule fallback. | ✅ Active |
 
 ---
 
@@ -126,7 +125,7 @@ Both services must be running for "plan a trip" / itinerary commands to work. Al
 
 VOYAGER uses LLMs in **two places** — the Orchestrator's tool-calling loop, and the Itinerary Swarm's leg-generation agents. Both currently default to:
 
-### GitHub Models (recommended, primary)
+### GitHub Models (Currently In Use)
 
 - **Free**, Microsoft-affiliated, OpenAI-compatible endpoint (`https://models.inference.ai.azure.com`)
 - Model: `gpt-4o-mini` — fast, reliable structured-JSON output, proper tool-calling
@@ -173,7 +172,7 @@ plan a trip from Howrah to Bhubaneswar by train
 
 ## Tech Stack
 
-- **AI**: GitHub Models (GPT-4o-mini) — primary for both Orchestrator and Itinerary Swarm; OpenRouter (free tool-capable models) and Groq (LLaMA 3.3 70B) as fallbacks
+- **AI**: GitHub Models (GPT-4o-mini) — currentlt in use for both Orchestrator and Itinerary Swarm; OpenRouter (free tool-capable models) and Groq (LLaMA 3.3 70B) as fallbacks
 - **Itinerary Swarm**: Python · FastAPI · Pydantic · `FlightAgent` / `RailAgent` / `ValidatorAgent` with self-healing retry loop, date/enum normalization safeguards
 - **Weather**: Open-Meteo (free, no key) + wttr.in fallback
 - **AQI**: Open-Meteo Air Quality API (free) + WAQI ground-station cross-check
