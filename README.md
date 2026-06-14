@@ -180,3 +180,9 @@ plan a trip from Howrah to Bhubaneswar by train
 - **Live flights/trains**: AviationStack + IRCTC RapidAPI (proxied server-side, with reference-schedule fallback)
 - **Dashboard**: Vanilla JS + WebSocket (real-time)
 - **Backend**: Node.js (orchestrator + WS server) + Python/FastAPI (itinerary swarm)
+
+Team Member -
+1. Pritam Sarkar 
+   (CSE Core|LinkedIn - https://www.linkedin.com/in/pritam-sarkar-1a609a346/)
+2. Siddhanth Roy
+    (CSE Core|LinkedIn - https://www.linkedin.com/in/siddhanth-roy-430146378?utm_source=share_via&utm_content=profile&utm_medium=member_android)
