@@ -646,7 +646,8 @@ async function executeTool(name, input) {
       let res;
       try {
         //res = await fetch('http://localhost:8000/run-swarm', 
-        const backendUrl = process.env.VITE_API_URL || 'http://localhost:8000';
+        // CHANGE THIS LINE:
+        const backendUrl = process.env.VITE_API_URL || process.env.API_URL || 'https://voyager-backend-n16e.onrender.com';
         res = await fetch(`${backendUrl}/run-swarm`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
