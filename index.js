@@ -83,9 +83,7 @@ if (!command || command === 'boot' || command === 'start') {
   const port = parseInt(process.env.DASHBOARD_PORT || '7777', 10);
   dash.start(port);
 
-  setInterval(() => {
-    // Keeps the Node event loop alive in cloud background environments
-  },
+  setInterval(() => {}, 1000 * 60 * 60);
 
   // 2. Boot announcement
   setTimeout(() => {
