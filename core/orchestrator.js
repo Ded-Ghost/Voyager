@@ -140,7 +140,7 @@ let isProcessing = false;
 // OPENROUTER API CALL — OpenAI-compatible chat completions with tool calling
 // ─────────────────────────────────────────────────────────────────────────────
 async function callOpenRouter(messages, tools) {
-  if (openrouterKeyMissing()) {
+  if (openrouterKeyMissing() && !GITHUB_TOKEN && !GROQ_KEY) {
     throw new Error('OPENROUTER_API_KEY not set. Get a free key at https://openrouter.ai/keys');
   }
 
@@ -822,7 +822,7 @@ async function handleCommand(text, source = 'shell') {
 // KEY SELF-TEST — minimal ping to verify the OpenRouter key works
 // ─────────────────────────────────────────────────────────────────────────────
 async function verifyOpenRouter() {
-  if (openrouterKeyMissing()) {
+  if (openrouterKeyMissing() && !GITHUB_TOKEN && !GROQ_KEY) {
     return { ok: false, reason: 'OPENROUTER_API_KEY not set in .env. Get one free: https://openrouter.ai/keys' };
   }
   let chain;
