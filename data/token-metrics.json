@@ -342,11 +342,60 @@
       "outputTokens": 249,
       "cacheReadTokens": 0,
       "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-14T14:58:45.185Z",
+      "inputTokens": 2053,
+      "outputTokens": 37,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-14T14:59:01.705Z",
+      "inputTokens": 2540,
+      "outputTokens": 104,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-14T14:59:07.508Z",
+      "inputTokens": 3543,
+      "outputTokens": 228,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-14T15:01:18.307Z",
+      "inputTokens": 2306,
+      "outputTokens": 37,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-14T15:01:43.360Z",
+      "inputTokens": 2869,
+      "outputTokens": 153,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-14T15:03:01.596Z",
+      "inputTokens": 2053,
+      "outputTokens": 37,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
+    },
+    {
+      "timestamp": "2026-06-14T15:03:18.907Z",
+      "inputTokens": 2433,
+      "outputTokens": 217,
+      "cacheReadTokens": 0,
+      "cacheCreateTokens": 0
     }
   ],
   "totals": {
-    "input": 168747,
-    "output": 6364,
+    "input": 186544,
+    "output": 7177,
     "cacheRead": 0,
     "cacheCreate": 0
   }

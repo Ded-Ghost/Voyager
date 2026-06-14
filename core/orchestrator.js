@@ -645,7 +645,9 @@ async function executeTool(name, input) {
       const t = setTimeout(() => controller.abort(), 60000);
       let res;
       try {
-        res = await fetch('http://localhost:8000/run-swarm', {
+        //res = await fetch('http://localhost:8000/run-swarm', 
+        const backendUrl = process.env.VITE_API_URL || 'http://localhost:8000';
+        res = await fetch(`${backendUrl}/run-swarm`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_prompt: input.user_prompt }),
