@@ -190,3 +190,6 @@ else {
   console.log(chalk.gray('  Once running, type commands in plain English at the VOYAGER ▸ prompt'));
   console.log(chalk.gray('  or use the command bar in the dashboard at http://localhost:7777\n'));
 }
+
+// Keep the cloud background process alive permanently
+setInterval(() => {}, 1000 * 60 * 60);
