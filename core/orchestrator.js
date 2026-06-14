@@ -645,7 +645,7 @@ async function executeTool(name, input) {
       const t = setTimeout(() => controller.abort(), 60000);
       let res;
       try {
-        res = await fetch('http://localhost:8000/run-swarm', {
+        res = await fetch('https://fastapi-backend.ashymeadow-624707b1.centralindia.azurecontainerapps.io', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_prompt: input.user_prompt }),
