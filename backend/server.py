@@ -8,9 +8,13 @@ from Agents.agents import (
     ValidatorAgent
 )
 app = FastAPI()
+origins = [
+    "http://localhost:7777",
+    "https://voyager-qpn7.onrender.com"  # Add your live frontend link here!
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
