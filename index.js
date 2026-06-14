@@ -83,7 +83,7 @@ if (!command || command === 'boot' || command === 'start') {
   const port = parseInt(process.env.DASHBOARD_PORT || '7777', 10);
   dash.start(port);
 
-  setInterval(() => {}, 1000 * 60 * 60);
+  //setInterval(() => {}, 1000 * 60 * 60);
 
   // 2. Boot announcement
   setTimeout(() => {
@@ -104,7 +104,13 @@ if (!command || command === 'boot' || command === 'start') {
   display.log('SYSTEM', chalk.cyan(`Shell active. Type commands in plain English.`), 'success');
   display.log('SYSTEM', chalk.gray(`Try: "monitor Mumbai next week"  or  "check air quality Delhi"  or  /help`), 'info');
 
-  shell.start();
+  //shell.start();
+  if (process.env.RENDER) {
+    display.log('SYSTEM', chalk.yellow(`Cloud deployment detected. Keeping background worker active...`), 'info');
+    setInterval(() => {}, 1000 * 60 * 60); 
+  } else {
+    shell.start();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
