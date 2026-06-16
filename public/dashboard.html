@@ -29,7 +29,7 @@ body::after{
 .sec-head::before{content:"\25A0";font-size:8px}
 #app{
   display:grid;height:100vh;
-  grid-template-columns:260px 1fr 290px;
+  grid-template-columns:330px 1fr 370px;
   grid-template-rows:48px 1fr auto;
   grid-template-areas:"header header header" "left center right" "foot foot foot";
   gap:1px;background:rgba(0,255,200,0.06);
@@ -87,7 +87,7 @@ body::after{
 .city-node{cursor:pointer}
 .city-node .star line{stroke:#bfe9ff;stroke-width:0.9}
 .city-node .star circle{fill:#dff3ff}
-.city-node .lbl{fill:#7fb8e8;font-size:9.5px;letter-spacing:1px;font-family:'Courier New',monospace;text-transform:uppercase}
+.city-node .lbl{fill:#7fb8e8;font-size:8px;letter-spacing:0.4px;font-family:'Courier New',monospace;text-transform:uppercase}
 .city-node:hover .lbl{fill:var(--primary)}
 .city-node.active .star line{stroke:var(--primary)}
 .city-node.active .star circle{fill:var(--primary)}
@@ -150,7 +150,7 @@ body::after{
 .cbtn.stop{color:var(--danger);border-color:rgba(255,68,68,0.4)}.cbtn.stop:hover{background:rgba(255,68,68,0.12)}
 .cbtn.exec{color:var(--primary);border-color:rgba(0,255,200,0.4)}.cbtn.exec:hover{background:rgba(0,255,200,0.12)}
 .hint{font-size:8.5px;color:var(--vmuted);letter-spacing:1.5px;text-transform:uppercase}
-@media(max-width:1100px){#app{grid-template-columns:180px 1fr 210px}}
+@media(max-width:1100px){#app{grid-template-columns:220px 1fr 250px}}
 </style>
 </head>
 <body>
@@ -184,7 +184,7 @@ body::after{
     <div class="map-corner mc-bl">SCAN MODE // ACTIVE</div>
     <div class="map-corner mc-br">NODES // 10</div>
     <div id="city-overlay"></div>
-    <svg id="map-svg" viewBox="-70 -50 500 510" preserveAspectRatio="xMidYMid meet"></svg>
+    <svg id="map-svg" viewBox="-35 -14 460 388" preserveAspectRatio="xMidYMid meet"></svg>
   </div>
   <div id="right" class="col">
     <div class="block"><div class="sec-head">Forecast</div><div id="forecast"><div class="empty">Select a node</div></div></div>
@@ -231,6 +231,9 @@ function handleServerEvent(msg){
     case 'itinerary_result':
       renderItineraryResult(msg);
       break;
+    case 'earthquakes':
+      renderSeismic(msg.data || msg);
+      break;
     case 'agent_status': {
       const idx = AGENTS.findIndex(a=>a.nm.toLowerCase().replace(/[^a-z]/g,'')===String(msg.agent).toLowerCase().replace(/[^a-z]/g,''));
       if(idx>=0) setAgent(idx, msg.status);
@@ -257,6 +260,31 @@ function handleServerEvent(msg){
   }
 }
 
+/* ═══════ SEISMIC / CALAMITY RENDERER ═══════ */
+function renderSeismic(d){
+  if(!d){ return; }
+  const loc = d.location || 'region';
+  const lvlMap = { critical:'crit', high:'crit', medium:'warn', none:'ok' };
+  const lvl = lvlMap[d.alertLevel] || (d.isAlertLevel ? 'warn' : 'ok');
+  let html = '';
+  if(d.tsunamiAlert){
+    html += `<div class="disr crit"><div class="tag">\u26A0 TSUNAMI ADVISORY \u00B7 ${loc}</div>Coastal flight/rail operations may be suspended \u2014 verify with operator before travel</div>`;
+  }
+  if(!d.totalNearby){
+    html += `<div class="disr ok"><div class="tag">${loc} \u00B7 SEISMICALLY CLEAR</div>No earthquakes \u2265 M2.5 within ${d.radiusKm||500} km in the last 24h \u2014 no calamity-related travel disruption expected</div>`;
+  }else{
+    html += `<div class="disr ${lvl}"><div class="tag">${loc} \u00B7 ${d.totalNearby} QUAKE${d.totalNearby===1?'':'S'} (${d.significant||0} significant)</div>${d.significant>0?'Significant seismic activity \u2014 possible airport inspections / rail speed restrictions, expect delays':'Minor tremors \u2014 travel operations likely nominal'}</div>`;
+    (d.earthquakes||[]).slice(0,4).forEach(q=>{
+      const when = q.time ? new Date(q.time).toLocaleString('en-IN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}) : '';
+      html += `<div class="disr ${q.magnitude>=5?'crit':q.magnitude>=4?'warn':'ok'}"><div class="tag">M${(q.magnitude||0).toFixed(1)} \u00B7 ${q.distanceKm}km away</div>${q.place||''}${when?' \u00B7 '+when:''}</div>`;
+    });
+  }
+  $('disruptions').innerHTML = html;
+  stream(d.isAlertLevel ? `Seismic alert near ${loc}: ${d.totalNearby} event(s)` : `No seismic threat near ${loc}`, 'SEISMIC');
+  if(d.tsunamiAlert) speak(`Warning. Tsunami advisory near ${loc}. Coastal travel may be disrupted.`);
+  else if(d.significant>0) speak(`Significant seismic activity detected near ${loc}. Travel delays possible.`);
+}
+
 function findCityByName(name){
   const n=(name||'').trim().toLowerCase();
   return CITIES.find(c=>c.name.toLowerCase()===n || c.iata.toLowerCase()===n);
@@ -264,17 +292,32 @@ function findCityByName(name){
 
 /* ═══════ ITINERARY RESULT RENDERER ═══════ */
 async function renderItineraryResult(data){
+  const legs = data.current_itinerary || [];
+  // If the swarm came back with nothing usable, keep whatever the local planner
+  // already drew rather than blanking the panel.
+  if(!legs.length){
+    stream('Swarm returned no legs — keeping local plan','SWARM');
+    return;
+  }
+  const dash_ = v => (v===undefined||v===null||v==='') ? '\u2014' : v;
+  const money = v => (v===undefined||v===null||v===''||Number(v)===0) ? '\u2014' : '\u20B9'+Number(v).toLocaleString('en-IN');
   let html = `<div class="disr ${data.is_validated ? 'ok' : 'warn'}">
-    <div class="tag">${data.is_validated ? 'ITINERARY VALIDATED' : 'VALIDATION PENDING'}</div>
+    <div class="tag">${data.is_validated ? 'ITINERARY VALIDATED' : 'NEEDS REVIEW'}</div>
+    ${(!data.is_validated && (data.validation_errors||[]).length) ? (data.validation_errors||[]).map(e=>e).join('<br>') : ''}
   </div>`;
-  (data.current_itinerary||[]).forEach(leg=>{
+  legs.forEach((leg,i)=>{
     html += `<div class="rt"><div class="rt-head">
-      <span class="rt-name">${leg.type==='flight'?'\u2708':'\uD83D\uDE86'} ${leg.operator} ${leg.identification_number}</span>
-      <span class="rt-status">${(leg.status||'').toUpperCase()}</span>
-    </div><div class="rt-info">${leg.from_location} \u2192 ${leg.to_location}<br>
-    Dep <span>${leg.departure_date} ${leg.departure_time}</span> &middot; Arr <span>${leg.arrival_date} ${leg.arrival_time}</span><br>
-    Cost <span>\u20B9${leg.cost}</span></div></div>`;
+      <span class="rt-name">${leg.type==='flight'?'\u2708':'\uD83D\uDE86'} LEG ${i+1} \u00B7 ${dash_(leg.operator)} ${dash_(leg.identification_number)}</span>
+      <span class="rt-status">${(leg.status||'proposed').toUpperCase()}</span>
+    </div><div class="rt-info">${dash_(leg.from_location)} \u2192 ${dash_(leg.to_location)}<br>
+    Dep <span>${dash_(leg.departure_date)} ${dash_(leg.departure_time)}</span> &middot; Arr <span>${dash_(leg.arrival_date)} ${dash_(leg.arrival_time)}</span><br>
+    Cost <span>${money(leg.cost)}</span></div></div>`;
   });
+  // Trip total across all legs
+  const total = legs.reduce((s,l)=>s+(Number(l.cost)||0),0);
+  if(total>0){
+    html += `<div class="rt" style="border-color:var(--primary)"><div class="rt-head"><span class="rt-name">TRIP TOTAL \u00B7 ${legs.length} LEG${legs.length===1?'':'S'}</span></div><div class="rt-info">Est. fare <span>\u20B9${total.toLocaleString('en-IN')}</span></div></div>`;
+  }
   $('routes-head').textContent = '\u25A0 PLANNED ITINERARY';
   $('routes').innerHTML = html;
   stream(data.is_validated ? 'Itinerary validated' : 'Itinerary needs review','SWARM');
@@ -371,7 +414,7 @@ const CITIES=[
   // --- Extended East Hubs ---
   {name:'Ranchi',    iata:'IXR',station:'RNC',  lat:23.34,lon:85.31, x:212,y:160, side:'r'},
   {name:'Bhubaneswar',iata:'BBI',station:'BBS', lat:20.27,lon:85.84, x:218,y:194, side:'r'},
-  {name:'Puri',      iata:'BBI',station:'PURI', lat:19.81,lon:85.83, x:218,y:199, side:'r'},
+  {name:'Puri',      iata:'PURI',station:'PURI', lat:19.81,lon:85.83, x:211,y:201, side:'b', railOnly:true},
   {name:'Gaya',      iata:'GAY',station:'GAYA', lat:24.79,lon:85.00, x:208,y:143, side:'l'},
 
   // --- Extended South Hubs ---
@@ -432,6 +475,12 @@ const INDIA_PATH="M116.16,22.74L120.95,23.01L132.48,17.23L138.43,17.07L141.22,18
  * For LIVE real-time data, integrate IRCTC API (free, requires registration) and AviationStack (free tier).
  */
 const ROUTES={
+'DEL-AGR':{flights:[
+  {al:'IndiGo 6E',deps:['09:30'],dur:'1h 05m',freq:'1/day',low:3200,high:6500,cost:'\u20B93.2K-6.5K'}],
+ trains:[{nm:'Gatimaan Exp 12050',dur:'1h 40m',dep:'08:10',arr:'09:50',type:'GATIMAAN',cls:'EC/CC',fareRange:'\u20B9755-1.5K'},
+  {nm:'Vande Bharat 22470',dur:'1h 48m',dep:'06:00',arr:'07:48',type:'VANDE BHARAT',cls:'EC/CC',fareRange:'\u20B91.1K-2.0K'},
+  {nm:'Shatabdi 12002',dur:'1h 50m',dep:'06:00',arr:'07:50',type:'SHATABDI',cls:'EC/CC',fareRange:'\u20B9700-1.4K'}],
+ drive:{dist:'233 km',dur:'3h 30m',via:'Yamuna Expressway'}},
 'DEL-BOM':{flights:[
   {al:'IndiGo 6E',deps:['05:30','07:15','09:00','11:30','14:00','16:45','19:30','21:45'],dur:'2h 10m',freq:'42/day',low:4200,high:8500,cost:'\u20B94.2K-8.5K'},
   {al:'Air India AI',deps:['06:00','08:30','12:15','17:00','20:30'],dur:'2h 15m',freq:'18/day',low:4800,high:12000,cost:'\u20B94.8K-12K'},
@@ -692,6 +741,40 @@ function getRouteInfo(from,to){
 }
 
 function routeKey(a,b){const k1=a+'-'+b,k2=b+'-'+a;return ROUTES[k1]?k1:ROUTES[k2]?k2:null;}
+/* Live APIs (AviationStack / IRCTC trainBetweenStations) don't return fares, so
+ * we surface an INDICATIVE fare from the reference ROUTES table for that pair.
+ * Matched to the operating airline where possible, else the route's fare band. */
+function refRouteFor(aIata,bIata){const k=routeKey(aIata,bIata);return k?ROUTES[k]:null;}
+function estFareByDistance(aIata,bIata,kind){
+  // Last-resort fare estimate so a price ALWAYS shows, even for city pairs not in
+  // the reference table. Uses great-circle-ish distance from the city coords.
+  const A=CITIES.find(c=>c.iata===aIata), B=CITIES.find(c=>c.iata===bIata);
+  if(!A||!B) return null;
+  const dx=(A.lon-B.lon), dy=(A.lat-B.lat);
+  const km=Math.max(50, Math.round(Math.sqrt(dx*dx+dy*dy)*111));
+  let low, high;
+  if(kind==='train'){ low=Math.round(km*0.6)+150; high=Math.round(km*1.8)+400; } // sleeper→3AC band
+  else { low=Math.max(1800, Math.round(km*3.5)); high=Math.max(3500, Math.round(km*8)); } // economy band
+  return `~\u20B9${low.toLocaleString('en-IN')}\u2013${high.toLocaleString('en-IN')} est`;
+}
+function fareForFlight(aIata,bIata,airlineName){
+  const r=refRouteFor(aIata,bIata);
+  if(r&&r.flights&&r.flights.length){
+    if(airlineName){
+      const first=airlineName.toLowerCase().split(' ')[0];
+      const m=r.flights.find(f=>f.al.toLowerCase().includes(first)||first.length>2&&first.includes(f.al.toLowerCase().split(' ')[0]));
+      if(m&&m.cost)return m.cost;
+    }
+    const lows=r.flights.map(f=>f.low).filter(Boolean),highs=r.flights.map(f=>f.high).filter(Boolean);
+    if(lows.length)return `\u20B9${Math.min(...lows).toLocaleString('en-IN')}\u2013${Math.max(...highs).toLocaleString('en-IN')}`;
+  }
+  return estFareByDistance(aIata,bIata,'flight');
+}
+function fareForTrain(aIata,bIata){
+  const r=refRouteFor(aIata,bIata);
+  if(r&&r.trains&&r.trains.length&&r.trains[0].fareRange)return r.trains[0].fareRange;
+  return estFareByDistance(aIata,bIata,'train');
+}
 /* Multi-hop: find 1-stop connecting routes via hub city */
 function findConnecting(fromIata,toIata){
 
@@ -837,10 +920,6 @@ function buildMap(){
   svg.appendChild(defs);
   svg.appendChild(el('path',{d:INDIA_PATH,fill:'rgba(70,150,230,0.10)',filter:'url(#softglow)'}));
   svg.appendChild(el('path',{d:INDIA_PATH,fill:'rgba(0,255,200,0.04)',stroke:'var(--mapline)','stroke-width':1.4,'stroke-linejoin':'round',filter:'url(#glow)'}));
-  const links=[[0,4],[0,8],[0,9],[8,9],[9,5],[5,4],[5,2],[2,6],[2,3],[3,5],[9,7],[7,2],[1,9],[1,8],[4,3]];
-  const rg=el('g');
-  links.forEach(([a,b])=>{const A=CITIES[a],B=CITIES[b],mx=(A.x+B.x)/2,my=(A.y+B.y)/2-14;rg.appendChild(el('path',{class:'route',d:`M${A.x},${A.y} Q${mx},${my} ${B.x},${B.y}`}));});
-  svg.appendChild(rg);
   svg.appendChild(el('g',{id:'conn-layer'}));
   const nodes=el('g',{id:'node-layer'});
   CITIES.forEach((c,i)=>{
@@ -853,18 +932,45 @@ function buildMap(){
     star.appendChild(el('circle',{cx:c.x,cy:c.y,r:2.2,filter:'url(#glow)'}));
     g.appendChild(star);
     let lblX,lblY,lblAnchor;
-    if(c.side==='b'){lblX=c.x;lblY=c.y+13;lblAnchor='middle';}
-    else if(c.side==='t'){lblX=c.x;lblY=c.y-7;lblAnchor='middle';}
-    else if(c.side==='l'){lblX=c.x-9;lblY=c.y+2.5;lblAnchor='end';}
-    else{lblX=c.x+9;lblY=c.y+2.5;lblAnchor='start';}
+    if(c.side==='b'){lblX=c.x;lblY=c.y+9;lblAnchor='middle';}
+    else if(c.side==='t'){lblX=c.x;lblY=c.y-5;lblAnchor='middle';}
+    else if(c.side==='l'){lblX=c.x-5;lblY=c.y+2.5;lblAnchor='end';}
+    else{lblX=c.x+5;lblY=c.y+2.5;lblAnchor='start';}
     const lbl=el('text',{class:'lbl',x:lblX,y:lblY,'text-anchor':lblAnchor});
-    lbl.textContent=`${c.iata} \u00B7 ${c.name}`;
+    /* Map shows only the short IATA code; full name appears in a hover tooltip. */
+    lbl.textContent=c.iata;
     g.appendChild(lbl);
+    g.addEventListener('mouseenter',()=>showTip(c));
+    g.addEventListener('mouseleave',hideTip);
     g.addEventListener('click',()=>selectCity(i));
     nodes.appendChild(g);
   });
   svg.appendChild(nodes);
+  /* Tooltip layer — always rendered last so the hover box sits above all nodes. */
+  svg.appendChild(el('g',{id:'tip-layer'}));
 }
+/* ── Hover tooltip: small box with the full city name in nearby empty space,
+ *    joined to the star by a subtle leader line. ── */
+function showTip(c){
+  const layer=$('tip-layer'); if(!layer)return; layer.innerHTML='';
+  const name=c.name.toUpperCase();
+  const charW=4.6, padX=5, boxH=13, fontSize=8;
+  const boxW=name.length*charW + padX*2;
+  const gap=10;
+  let bx,by;
+  if(c.side==='l'){bx=c.x-gap-boxW; by=c.y-boxH/2;}
+  else if(c.side==='b'){bx=c.x-boxW/2; by=c.y+gap;}
+  else if(c.side==='t'){bx=c.x-boxW/2; by=c.y-gap-boxH;}
+  else{bx=c.x+gap; by=c.y-boxH/2;}
+  const lx2 = c.side==='l'?bx+boxW : c.side==='r'?bx : c.x;
+  const ly2 = (c.side==='l'||c.side==='r')?c.y : (c.side==='b'?by:by+boxH);
+  layer.appendChild(el('line',{x1:c.x,y1:c.y,x2:lx2,y2:ly2,stroke:'var(--primary)','stroke-width':0.6,opacity:0.7}));
+  layer.appendChild(el('rect',{x:bx,y:by,width:boxW,height:boxH,rx:2,fill:'rgba(5,13,26,0.95)',stroke:'var(--primary)','stroke-width':0.7,filter:'url(#glow)'}));
+  const t=el('text',{x:bx+boxW/2,y:by+boxH/2+fontSize/2-1,'text-anchor':'middle',fill:'var(--primary)','font-size':fontSize,'font-family':"'Courier New',monospace",'letter-spacing':0.5});
+  t.textContent=name;
+  layer.appendChild(t);
+}
+function hideTip(){const layer=$('tip-layer'); if(layer)layer.innerHTML='';}
 function drawConnections(i){
   const layer=$('conn-layer');layer.innerHTML='';
   const A=CITIES[i];
@@ -903,9 +1009,10 @@ async function fetchWeatherAQI(c){
   const aUrl=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${c.lat}&longitude=${c.lon}&current=pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,ozone&hourly=pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,ozone&timezone=auto&past_days=1&forecast_days=0`;
   const wp=fetch(wUrl).then(r=>r.json());
   const ap=fetch(aUrl).then(r=>r.json()).catch(()=>null);
-  /* WAQI: real ground-station data from CPCB / SAFAR networks in India */
-  const waqiCity=(c.name||'').toLowerCase().replace(/\s/g,'-');
-  const waqiP=fetch(`https://api.waqi.info/feed/${waqiCity}/?token=${WAQI_TOKEN}`).then(r=>r.json()).catch(()=>null);
+  /* WAQI: real ground-station data from CPCB / SAFAR networks in India.
+   * Use geo:lat;lon lookup — it resolves to the nearest real station reliably,
+   * unlike the city-name feed which often fails for Indian city spellings. */
+  const waqiP=fetch(`https://api.waqi.info/feed/geo:${c.lat};${c.lon}/?token=${WAQI_TOKEN}`).then(r=>r.json()).catch(()=>null);
   const[w,a,wq]=await Promise.all([wp,ap,waqiP]);
   return{w,a,wq};
 }
@@ -970,11 +1077,13 @@ function subIndex(p,conc){const bp=NAQI_BP[p];if(!bp||conc==null||isNaN(conc))re
 /* Compute 24h average from hourly array (last 24 non-null values) */
 function avg24(arr){if(!arr)return null;const vals=arr.filter(v=>v!=null).slice(-24);return vals.length>=6?vals.reduce((s,v)=>s+v,0)/vals.length:null;}
 function calcNAQI(aqData, waqi){
-  /* IMPORTANT: WAQI's iaqi.*.v values are themselves AQI sub-indices (0-500 scale),
-   * NOT raw concentrations. Feeding them into our concentration-based NAQI_BP table
-   * causes unit-mismatch blowups (e.g. CO sub-index ~50 misread as 50 mg/m3 => NAQI 500).
-   * So: NAQI is computed ONLY from Open-Meteo's real µg/m3 concentrations (24h avg).
-   * WAQI is used purely as a reference cross-check (station name + its own AQI figure). */
+  /* Two independent sources:
+   *  1. WAQI ground stations (CPCB/SAFAR) — real measured AQI. Most trustworthy
+   *     and matches what people see on AQI apps. Its data.aqi is on the US-EPA
+   *     scale; its iaqi.pm25.v is the US AQI PM2.5 sub-index (NOT concentration).
+   *  2. Open-Meteo CAMS model — gives real µg/m³ concentrations we can run through
+   *     India's CPCB NAQI bands. Used when no nearby station, and as a cross-check.
+   * We PREFER the live station reading and fall back to the model. */
   const hr=aqData?.hourly;const cur=aqData?.current;
   const avgs={
     pm2_5: avg24(hr?.pm2_5)  ?? cur?.pm2_5  ?? null,
@@ -985,17 +1094,38 @@ function calcNAQI(aqData, waqi){
     o3:    avg24(hr?.ozone)   ?? cur?.ozone ?? null,
   };
   const pollutantNames={pm2_5:'PM2.5',pm10:'PM10',no2:'NO\u2082',so2:'SO\u2082',co:'CO',o3:'O\u2083'};
-  let maxSub=0,dominant=null;
+  let modelNaqi=0,modelDom=null;
   for(const key in avgs){
     const si=subIndex(key,avgs[key]);
-    if(si!=null&&si>maxSub){maxSub=si;dominant=pollutantNames[key]||key;}
+    if(si!=null&&si>modelNaqi){modelNaqi=si;modelDom=pollutantNames[key]||key;}
   }
-  let refLine=null;
-  if(waqi && waqi.status==='ok' && waqi.data){
+  modelNaqi=modelNaqi||null;
+  /* Live station reading from WAQI */
+  let station=null;
+  if(waqi && waqi.status==='ok' && waqi.data && typeof waqi.data.aqi==='number'){
     const d=waqi.data;
-    if(typeof d.aqi==='number') refLine=`WAQI station ${d.city?.name||''}: ${d.aqi} (US AQI scale, for reference)`;
+    const iaqi=d.iaqi||{};
+    /* dominant pollutant if WAQI reports it */
+    const domMap={pm25:'PM2.5',pm10:'PM10',no2:'NO\u2082',so2:'SO\u2082',co:'CO',o3:'O\u2083'};
+    station={
+      aqi:d.aqi,
+      name:(d.city&&d.city.name)||'nearest station',
+      dominant:domMap[d.dominentpol]||null,
+      time:(d.time&&d.time.s)||null,
+      pm25:iaqi.pm25?iaqi.pm25.v:null,
+      pm10:iaqi.pm10?iaqi.pm10.v:null
+    };
   }
-  return{naqi:maxSub||null,dominant,avgs,source:'Open-Meteo CAMS model \u00B7 24h avg (\u00B5g/m\u00B3)',ref:refLine};
+  /* Headline value: prefer the live station AQI, else the model NAQI */
+  const naqi = station ? station.aqi : modelNaqi;
+  const dominant = station ? (station.dominant||modelDom) : modelDom;
+  const source = station
+    ? `Live CPCB/SAFAR station: ${station.name}${station.time?' \u00B7 '+station.time.slice(0,16):''}`
+    : 'Open-Meteo CAMS model \u00B7 24h avg (\u00B5g/m\u00B3)';
+  const ref = station && modelNaqi ? `Model cross-check (NAQI): ${modelNaqi}${modelDom?' \u00B7 '+modelDom:''}`
+            : station ? null
+            : 'No nearby ground station \u2014 showing model estimate';
+  return{naqi:naqi||null,dominant,avgs,source,ref,live:!!station};
 }
 function naqiLabel(v){if(v==null)return['Unknown',0];for(const c of NAQI_CATS)if(v<=c.hi)return[c.label,c.idx];return['Severe',5];}
 
@@ -1049,9 +1179,12 @@ function renderForecast(c,w){
     <div class="fc-detail">${desc} &middot; <span>${c.name}</span><br>HI <span>${mx!=null?Math.round(mx):'--'}&deg;</span> / LO <span>${mn!=null?Math.round(mn):'--'}&deg;</span><br>HUM <span>${cur.relative_humidity_2m}%</span> &middot; WIND <span>${Math.round(cur.wind_speed_10m)} km/h</span>${cur.visibility!=null?' &middot; VIS <span>'+(cur.visibility>=1000?(cur.visibility/1000).toFixed(1)+'km':cur.visibility+'m')+'</span>':''}</div>`;
 }
 function renderAQI(a, wq){
-  const{naqi:v,dominant,avgs,source,ref}=calcNAQI(a,wq);if(v==null){$('aqi').innerHTML='<div class="empty">No data</div>';return;}
+  const r=calcNAQI(a,wq);const{naqi:v,dominant,avgs,source,ref,live}=r;
+  if(v==null){$('aqi').innerHTML='<div class="empty">No data</div>';return;}
   const[lab,idx]=naqiLabel(v),bars=[0,1,2,3,4,5].map(i=>`<div class="${i<=idx?'on'+idx:''}"></div>`).join('');
-  $('aqi').innerHTML=`<div class="aqi-row"><span class="n">${v}</span><span class="l">${lab}</span></div><div class="aqi-bar">${bars}</div><div class="aqi-stops"><span>Good</span><span>Sat</span><span>Mod</span><span>Poor</span><span>V.Poor</span><span>Severe</span></div><div class="fc-detail" style="margin-top:6px">Dominant: <span>${dominant||'--'}</span><br>${source}<br>PM2.5 <span>${avgs.pm2_5!=null?(+avgs.pm2_5).toFixed(1):'--'}</span> &middot; PM10 <span>${avgs.pm10!=null?(+avgs.pm10).toFixed(1):'--'}</span> &micro;g/m&sup3;<br>NO\u2082 <span>${avgs.no2!=null?(+avgs.no2).toFixed(0):'--'}</span> &middot; SO\u2082 <span>${avgs.so2!=null?(+avgs.so2).toFixed(0):'--'}</span> &middot; O\u2083 <span>${avgs.o3!=null?(+avgs.o3).toFixed(0):'--'}</span> &middot; CO <span>${avgs.co!=null?(+avgs.co).toFixed(2):'--'}</span> mg/m&sup3;${ref?'<br><span style="opacity:.6">'+ref+'</span>':''}</div>`;
+  const scaleTag=live?'<span style="color:var(--primary);font-size:8px;letter-spacing:1px;border:1px solid var(--primary);padding:1px 4px;border-radius:2px;margin-left:6px">LIVE</span>':'<span style="color:var(--vmuted);font-size:8px;letter-spacing:1px;margin-left:6px">MODEL</span>';
+  const scaleNote=live?'US-EPA AQI (live station)':'India NAQI (CPCB bands)';
+  $('aqi').innerHTML=`<div class="aqi-row"><span class="n">${v}</span><span class="l">${lab}</span>${scaleTag}</div><div class="aqi-bar">${bars}</div><div class="aqi-stops"><span>Good</span><span>Sat</span><span>Mod</span><span>Poor</span><span>V.Poor</span><span>Severe</span></div><div class="fc-detail" style="margin-top:6px">Dominant: <span>${dominant||'--'}</span> &middot; <span style="color:var(--vmuted)">${scaleNote}</span><br>${source}<br>PM2.5 <span>${avgs.pm2_5!=null?(+avgs.pm2_5).toFixed(1):'--'}</span> &middot; PM10 <span>${avgs.pm10!=null?(+avgs.pm10).toFixed(1):'--'}</span> &micro;g/m&sup3;<br>NO\u2082 <span>${avgs.no2!=null?(+avgs.no2).toFixed(0):'--'}</span> &middot; SO\u2082 <span>${avgs.so2!=null?(+avgs.so2).toFixed(0):'--'}</span> &middot; O\u2083 <span>${avgs.o3!=null?(+avgs.o3).toFixed(0):'--'}</span> &middot; CO <span>${avgs.co!=null?(+avgs.co).toFixed(2):'--'}</span> mg/m&sup3;${ref?'<br><span style="opacity:.6">'+ref+'</span>':''}</div>`;
 }
 function renderDisruptions(alerts){
   $('disruptions').innerHTML=alerts.map(a=>`<div class="disr ${a.level}"><div class="tag">${a.tag}</div>${a.msg}</div>`).join('');
@@ -1087,8 +1220,21 @@ function renderRouteDetail(ai,bi,result,opts={},live=null){
   if(live){
     let liveFlights=mode!=='train'?[...(live.flights||[])]:[];
     let liveTrains=mode!=='flight'?[...(live.trains||[])]:[];
+    // Time-window filter ("flights after 6pm", "morning train", etc.)
+    const win=opts.timeWin;
+    if(win){
+      liveFlights=liveFlights.filter(f=>inTimeWindow(depMinFromIso(f.depScheduled),win));
+      liveTrains=liveTrains.filter(t=>inTimeWindow(depMinFromHHMM(t.depTime),win));
+    }
     if(prefer==='fast'){
       liveFlights.sort((a,b)=>parseDur(durFromIso(a.depScheduled,a.arrScheduled))-parseDur(durFromIso(b.depScheduled,b.arrScheduled)));
+    }
+    // When the user asked for cheapest/fastest, don't dump the whole board —
+    // surface the single best option (list is already sorted for 'fast').
+    let liveFlightsExtra=0, liveTrainsExtra=0;
+    if(prefer!=='best'){
+      if(liveFlights.length>1){liveFlightsExtra=liveFlights.length-1;liveFlights=liveFlights.slice(0,1);}
+      if(liveTrains.length>1){liveTrainsExtra=liveTrains.length-1;liveTrains=liveTrains.slice(0,1);}
     }
     liveHasData=liveFlights.length>0||liveTrains.length>0;
     if(liveHasData){
@@ -1097,14 +1243,21 @@ function renderRouteDetail(ai,bi,result,opts={},live=null){
         const dep=fmtTime(f.depScheduled),arr=fmtTime(f.arrScheduled);
         const delay=f.depDelay?` <span style="color:var(--warn)">+${f.depDelay}min delay</span>`:'';
         const dur=durFromIso(f.depScheduled,f.arrScheduled);
-        html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.airline} ${f.flightNum}</span><span class="rt-status" style="color:${statusColor(f.status)};border-color:${statusColor(f.status)}">${(f.status||'').toUpperCase()}</span></div><div class="rt-info">Dep <span>${dep}</span> &middot; Arr <span>${arr}</span>${dur?' &middot; Duration <span>'+dur+'</span>':''}${delay}${f.terminal?' &middot; Terminal <span>'+f.terminal+'</span>':''}</div></div>`;
+        const fare=fareForFlight(A.iata,B.iata,f.airline);
+        const fareHtml=fare?` &middot; Est. fare <span>${fare}</span>`:'';
+        html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.airline} ${f.flightNum}</span><span class="rt-status" style="color:${statusColor(f.status)};border-color:${statusColor(f.status)}">${(f.status||'').toUpperCase()}</span></div><div class="rt-info">Dep <span>${dep}</span> &middot; Arr <span>${arr}</span>${dur?' &middot; Duration <span>'+dur+'</span>':''}${fareHtml}${delay}${f.terminal?' &middot; Terminal <span>'+f.terminal+'</span>':''}</div></div>`;
       });
       liveTrains.forEach(t=>{
-        html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE86 ${t.number} ${t.name}</span><span class="rt-status" style="color:var(--primary);border-color:var(--primary)">TODAY</span></div><div class="rt-info">Dep <span>${t.depTime||'--'}</span> &middot; Arr <span>${t.arrTime||'--'}</span> &middot; Duration <span>${t.duration||'--'}</span>${t.classes?'<br>Classes: <span>'+t.classes+'</span>':''}</div></div>`;
+        const fare=fareForTrain(A.iata,B.iata);
+        const fareHtml=fare?' &middot; Est. fare <span>'+fare+'</span>':'';
+        html+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE86 ${t.number} ${t.name}</span><span class="rt-status" style="color:var(--primary);border-color:var(--primary)">TODAY</span></div><div class="rt-info">Dep <span>${t.depTime||'--'}</span> &middot; Arr <span>${t.arrTime||'--'}</span> &middot; Duration <span>${t.duration||'--'}</span>${fareHtml}${t.classes?'<br>Classes: <span>'+t.classes+'</span>':''}</div></div>`;
       });
+      const totalExtra=liveFlightsExtra+liveTrainsExtra;
+      if(prefer!=='best'&&totalExtra>0){
+        html+=`<div class="src-note">${prefer==='cheap'?'Cheapest':'Fastest'} pick shown \u2014 ${totalExtra} more live option${totalExtra===1?'':'s'} available today (say "best route" to see all)</div>`;
+      }
     }
   }
-  /* Note about live fetch issues (helps debugging without cluttering when it works) */
   if(live&&!liveHasData){
     const errs=[];
     if(live.flightsErr&&live.flightsErr!=='offline')errs.push('Flights: '+live.flightsErr);
@@ -1115,7 +1268,9 @@ function renderRouteDetail(ai,bi,result,opts={},live=null){
   }
   /* Helper to render static reference cards */
   function flightCard(f){
-    const deps=f.deps?`<br>Daily slots: <span>${f.deps.join(' \u00B7 ')}</span>`:'';
+    let slots=f.deps||[];
+    if(opts.timeWin&&slots.length){const fs=slots.filter(s=>inTimeWindow(depMinFromHHMM(s),opts.timeWin)); slots=fs.length?fs:slots;}
+    const deps=slots.length?`<br>Daily slots: <span>${slots.join(' \u00B7 ')}</span>`:'';
     return `<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.al}</span><span class="rt-type flight">FLIGHT</span></div><div class="rt-info">Duration <span>${f.dur}</span> &middot; Frequency <span>${f.freq}</span> &middot; <span>${f.cost}</span>${deps}</div></div>`;
   }
   function trainCard(t){
@@ -1135,16 +1290,27 @@ function renderRouteDetail(ai,bi,result,opts={},live=null){
   if(result.type==='direct'){
     const r=ROUTES[result.key];
     $('routes-head').textContent='\u25A0 '+A.iata+' \u2192 '+B.iata+' \u00B7 '+(prefer==='cheap'?'CHEAPEST':prefer==='fast'?'FASTEST':'ALL OPTIONS');
+    if(opts.timeWin)html+=`<div class="src-note">Departure window: ${fmtWin(opts.timeWin)} \u2014 trains outside it hidden, flight slots filtered</div>`;
     let flights=r.flights?[...r.flights]:[];
     let trains=r.trains?[...r.trains]:[];
+    if(opts.timeWin)trains=trains.filter(t=>inTimeWindow(depMinFromHHMM(t.dep),opts.timeWin));
     sortByPreference(flights,prefer,'flight');
     sortByPreference(trains,prefer,'train');
     if(prefer!=='best'&&(flights.length||trains.length)){
       const allOpts=[];
       if(mode!=='train')flights.forEach(f=>allOpts.push({card:flightCard(f),score:prefer==='cheap'?(f.low||9e9):parseDur(f.dur)}));
-      if(mode!=='flight')trains.forEach(t=>allOpts.push({card:trainCard(t),score:prefer==='cheap'?500:parseDur(t.dur)}));
+      if(mode!=='flight')trains.forEach(t=>allOpts.push({card:trainCard(t),score:prefer==='cheap'?(t.low||500):parseDur(t.dur)}));
       allOpts.sort((a,b)=>a.score-b.score);
-      if(allOpts.length){if(!liveHasData)html+=`<div class="disr ok"><div class="tag">TOP PICK \u00B7 ${prefer.toUpperCase()}</div>Best match below</div>`;html+=allOpts[0].card;allOpts.slice(1).forEach(o=>html+=o.card);}
+      if(allOpts.length){
+        // CHEAPEST/FASTEST = show the single best match only; tuck the rest away.
+        if(!liveHasData)html+=`<div class="disr ok"><div class="tag">${prefer==='cheap'?'CHEAPEST':'FASTEST'} PICK</div>Top match for "${prefer}" below</div>`;
+        html+=allOpts[0].card;
+        if(allOpts.length>1){
+          html+=`<details style="margin-top:4px"><summary style="cursor:pointer;color:var(--vmuted);font-size:10px;letter-spacing:1px">+ ${allOpts.length-1} other option${allOpts.length-1===1?'':'s'}</summary>`;
+          allOpts.slice(1).forEach(o=>html+=o.card);
+          html+=`</details>`;
+        }
+      }
     }else{
       if(mode!=='train')flights.forEach(f=>html+=flightCard(f));
       if(mode!=='flight')trains.forEach(t=>html+=trainCard(t));
@@ -1193,12 +1359,33 @@ function renderRouteDetail(ai,bi,result,opts={},live=null){
 let VOICES=[];
 function loadVoices(){VOICES=window.speechSynthesis?.getVoices()||[];}
 if('speechSynthesis' in window){loadVoices();window.speechSynthesis.onvoiceschanged=loadVoices;}
+/* Pick the most natural-sounding female voice available.
+ * Modern browsers ship neural "Natural"/"Online" voices that sound human;
+ * we prefer those by name, then fall back to any decent female English voice. */
+function pickVoice(){
+  if(!VOICES.length)return null;
+  const named=n=>VOICES.find(v=>v.name&&v.name.toLowerCase().includes(n.toLowerCase()));
+  const FEMALE=/aria|jenny|sonia|emma|libby|ava|samantha|allison|joanna|female|woman|zira|neerja|swara|kavya|google uk english female|google us english/i;
+  return (
+    VOICES.find(v=>/natural/i.test(v.name)&&FEMALE.test(v.name)&&/^en/.test(v.lang||''))||
+    VOICES.find(v=>/neerja|natural/i.test(v.name)&&/en-IN/.test(v.lang||''))||
+    named('Neerja')||
+    named('Samantha')||named('Ava')||named('Allison')||
+    VOICES.find(v=>/google/i.test(v.name)&&v.lang==='en-IN')||
+    named('Google UK English Female')||named('Google US English')||
+    VOICES.find(v=>/^en-IN/i.test(v.lang||''))||
+    VOICES.find(v=>FEMALE.test(v.name)&&/^en/.test(v.lang||''))||
+    VOICES.find(v=>/^en/.test(v.lang||''))||VOICES[0]
+  );
+}
 function speak(text){
   if(S.muted||!('speechSynthesis' in window))return;
   window.speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text);
-  const v=VOICES.find(v=>v.name.includes('Google')&&v.lang==='en-IN')||VOICES.find(v=>v.lang&&v.lang.startsWith('en-IN'))||VOICES.find(v=>v.name.includes('Google UK English Female'))||VOICES.find(v=>v.name.includes('Female'))||VOICES.find(v=>v.lang&&v.lang.startsWith('en'))||VOICES[0];
-  if(v)u.voice=v;u.rate=0.9;u.pitch=1.0;u.volume=1.0;window.speechSynthesis.speak(u);
+  const v=pickVoice();
+  if(v)u.voice=v;
+  u.rate=0.95;u.pitch=1.05;u.volume=1.0;
+  window.speechSynthesis.speak(u);
 }
 function showOverlay(t){const o=$('city-overlay');o.textContent=t;o.classList.add('show');clearTimeout(o._t);o._t=setTimeout(()=>o.classList.remove('show'),2500);}
 function toggleMute(){S.muted=!S.muted;$('mute-btn').innerHTML=S.muted?'&#128263;':'&#128266;';if(S.muted)window.speechSynthesis?.cancel();stream(S.muted?'Voice muted':'Voice enabled');}
@@ -1313,6 +1500,16 @@ async function routeCommand(fromStr,toStr,opts={}){
   }else{
     stream('No live or reference data for this pair','PLAN');
   }
+  /* Voice summary for the route (previously only city-inspect spoke). */
+  {
+    const fl=live.flights.length,tr=live.trains.length;
+    const pl=opts.prefer==='cheap'?'Cheapest':opts.prefer==='fast'?'Fastest':'Best';
+    let rspeech=`${pl} route from ${A.name} to ${B.name}.`;
+    if(fl||tr)rspeech+=` Found ${fl} live flight${fl===1?'':'s'} and ${tr} train${tr===1?'':'s'}.`;
+    else if(result&&result.type==='connecting')rspeech+=` No direct route. Connecting via ${result.hubName}.`;
+    else rspeech+=` Showing reference schedule.`;
+    speak(rspeech);
+  }
   setTimeout(async()=>{
     setAgent(2,'active');stream('Checking corridor disruptions...','REROUTE');
     try{
@@ -1325,6 +1522,10 @@ async function routeCommand(fromStr,toStr,opts={}){
       if(!allAlerts.length)allAlerts.push({level:'ok',tag:'CORRIDOR CLEAR',msg:`No disruptions on ${A.iata}\u2192${B.iata} corridor`});
       renderDisruptions(allAlerts);
       stream(allAlerts[0].level==='ok'?'Corridor clear':allAlerts.length+' disruption(s) on corridor','REROUTE');
+      const crit=allAlerts.find(a=>a.level==='crit'),warn=allAlerts.find(a=>a.level==='warn');
+      if(crit)speak(`Alert on the ${A.iata} to ${B.iata} corridor. ${crit.tag}.`);
+      else if(warn)speak(`Advisory on the corridor. ${warn.tag}.`);
+      else speak(`Corridor from ${A.name} to ${B.name} is clear.`);
       setAgent(2,allAlerts.some(a=>a.level!=='ok')?'standby':'idle');
     }catch(e){setAgent(2,'error');stream('Corridor scan failed','REROUTE');}
   },700);
@@ -1344,11 +1545,18 @@ function findCityIn(text,fromIdx){
   for(let i=0;i<CITIES.length;i++){
     const c=CITIES[i];
     const aliases=[c.name.toLowerCase(),c.iata.toLowerCase()];
-    /* Common alternate names */
-    if(c.iata==='BOM')aliases.push('bombay');
-    if(c.iata==='CCU')aliases.push('calcutta');
-    if(c.iata==='MAA')aliases.push('madras');
-    if(c.iata==='BLR')aliases.push('bangalore');
+    /* Common alternate names + short forms users actually type */
+    if(c.iata==='BOM')aliases.push('bombay','mumb','mum');
+    if(c.iata==='CCU')aliases.push('calcutta','kol','cal');
+    if(c.iata==='MAA')aliases.push('madras','chen');
+    if(c.iata==='BLR')aliases.push('bangalore','bang','bnglr');
+    if(c.iata==='DEL')aliases.push('new delhi','ndls','dilli');
+    if(c.iata==='HYD')aliases.push('hyd','hyderbd');
+    if(c.iata==='PNQ')aliases.push('poona');
+    if(c.iata==='GOI')aliases.push('goa');
+    if(c.iata==='VNS')aliases.push('benares','banaras','kashi');
+    if(c.iata==='COK')aliases.push('cochin');
+    if(c.iata==='TRV')aliases.push('thiruvananthapuram','trivandrum');
     for(const al of aliases){
       const idx=text.indexOf(al,fromIdx);
       if(idx>=0 && (best==null||idx<best.idx)){
@@ -1378,30 +1586,83 @@ function parseIntent(raw){
   if(t==='mute'||t==='unmute')return{kind:'mute'};
   if(t==='clear'||t==='reset'||t==='abort')return{kind:'clear'};
   if(t==='scan'||t==='status'||t==='all')return{kind:'scan'};
-  if(/\b(plan|build|create|generate|want)\b.*\b(trip|itinerary|journey)\b/.test(t))return{kind:'itinerary',raw};
   const cities=findAllCities(t);
-  /* Intent keywords */
-  const wantsRoute=/\b(route|trip|travel|go|going|reach|reaching|fly|train|from|journey|how to get|way to|path to)\b/.test(t);
-  const wantsWeather=/\b(weather|forecast|temperature|temp|rain|sunny|hot|cold|climate)\b/.test(t)&&!wantsRoute;
-  const wantsAQI=/\b(aqi|naqi|pollution|air quality|smog|particulate)\b/.test(t)&&!wantsRoute;
-  const wantsDelays=/\b(delay|delays|disruption|disruptions|alert|warning|advisory|issue|problem)\b/.test(t);
-  /* Modifiers */
-  const prefer=/\b(cheap|cheapest|budget|affordable|economic|low cost|lowest)\b/.test(t)?'cheap'
-              :/\b(fast|fastest|quick|quickest|shortest|speed)\b/.test(t)?'fast'
+  /* "Break/stop/halt/stopover at X" — X is meant as the middle stop, not the
+   * start. E.g. "break my trip at delhi from kolkata to amritsar" = CCU>DEL>ATQ.
+   * Detect the explicit middle city and reorder it between the endpoints. */
+  const stopAtMatch=t.match(/\b(?:break(?:ing)?(?: (?:my|the|our|a))? (?:journey|trip|travel) (?:at|in)|stop(?:over|ping)?(?: (?:at|in|over (?:at|in)))|halt(?:ing)? (?:at|in)|breaking at|with (?:a )?stop(?:over)? (?:at|in)|with (?:a )?halt (?:at|in))\s+([a-z][a-z\s]*?)(?=\s+(?:from|to|between|delhi|mumbai|kolkata|bangalore|chennai|hyderabad|and|then|,|$))/);
+  let forcedMid=null;
+  if(stopAtMatch&&stopAtMatch[1]){
+    const m=findCityIn(stopAtMatch[1].trim(),0);
+    if(m)forcedMid=m.c;
+  }
+  /* Intent keywords (kept generous so natural phrasings are understood) */
+  const wantsRoute=/\b(route|routes|trip|travel|traveling|travelling|go|going|get|getting|reach|reaching|fly|flying|flight|train|from|to|journey|how (?:do i|to|can i)|way to|ways to|path to|take me|book|booking|connect|connection|itinerary|visit|visiting|tour)\b/.test(t);
+  const wantsWeather=/\b(weather|forecast|temperature|temp|rain|sunny|hot|cold|climate|humid|humidity)\b/.test(t)&&!wantsRoute;
+  const wantsAQI=/\b(aqi|naqi|pollution|air quality|smog|particulate|pm2|pm10)\b/.test(t)&&!wantsRoute;
+  const wantsDelays=/\b(delay|delays|disruption|disruptions|alert|alerts|warning|advisory|issue|problem|status)\b/.test(t);
+  /* Modifiers — "shortest" can mean fastest (time) here */
+  const prefer=/\b(cheap|cheaper|cheapest|cheaply|budget|affordable|economic|economical|low ?cost|lowest|inexpensive|save money|on (?:a )?budget)\b/.test(t)?'cheap'
+              :/\b(fast|faster|fastest|quick|quicker|quickest|shortest|short|speed|speedy|direct|soonest|earliest|asap)\b/.test(t)?'fast'
               :'best';
-  const mode=/\b(flight|flights|fly|plane|air only|airline)\b/.test(t)&&!/\btrain\b/.test(t)?'flight'
-            :/\b(train|trains|rail|railway|irctc)\b/.test(t)&&!/\bflight\b/.test(t)?'train'
+  const mode=/\b(flight|flights|fly|flying|plane|air only|airline|by air)\b/.test(t)&&!/\btrain\b/.test(t)?'flight'
+            :/\b(train|trains|rail|railway|irctc|by rail)\b/.test(t)&&!/\b(flight|fly|plane)\b/.test(t)?'train'
             :'all';
-  /* Via/Stop detection */
-  const viaMatch=t.match(/\b(via|through|stopping at|stop at|halt at|stopping in|via |by way of)\s+([a-z]+)/);
+  const timeWin=parseTimeWindow(t);
+  /* Explicit "plan a trip / itinerary" phrasing — still parse the stop list so
+   * we can render locally even when the backend swarm is offline. */
+  if(/\b(plan|build|create|generate|want|need|design|map out|organi[sz]e)\b.*\b(trip|itinerary|journey|tour|travel|route)\b/.test(t) && cities.length>=2){
+    /* If a forced middle stop was named (break/halt/stop at X), reorder. */
+    let stops=cities.map(x=>x.c);
+    if(forcedMid){
+      stops=stops.filter(c=>c.iata!==forcedMid.iata);
+      if(stops.length>=2)stops=[stops[0], forcedMid, ...stops.slice(1)];
+      else if(stops.length===1)stops=[stops[0], forcedMid];
+    }
+    return{kind:'itinerary',raw,stops,prefer,mode,legModes:detectLegModes(raw,stops),timeWin};
+  }
+  /* Via/Stop detection (single explicit hub, e.g. "via chennai"). Skip when
+   * forcedMid already handles the intermediate — otherwise it gets removed twice. */
+  const viaMatch=t.match(/\b(?:via|through|stopping at|stop at|halt at|stopping in|by way of)\s+([a-z]+)/);
   let via=null;
-  if(viaMatch){
-    const viaCity=findCityIn(viaMatch[2],0);
+  if(viaMatch&&viaMatch[1]&&!forcedMid){
+    const viaCity=findCityIn(viaMatch[1],0);
     if(viaCity)via=viaCity.c;
   }
-  /* Routing — needs 2+ cities */
-  if(cities.length>=2&&(wantsRoute||cities.length>=2)){
-    return{kind:'route',from:cities[0].c,to:cities[cities.length-1].c,via,prefer,mode};
+  /* Multi-stop / sequenced trips. A request like
+   *   "cheapest from kolkata to bangalore and then hyderabad"
+   * names 3+ cities in order, or uses sequencing words ("then", "after",
+   * commas, arrows). These are real multi-leg journeys — they must be planned
+   * leg by leg by the itinerary swarm, NOT collapsed to a single direct hop. */
+  const hasSequenceWord=/\b(then|thereafter|after that|after which|afterwards|followed by|next|onward to|onwards to|continue to|and then)\b/.test(t)
+                      || /->|\u2192|=>/.test(t);
+  /* Build the ordered city list, honouring an explicit "stop/break/halt at X". */
+  let orderedCities=cities.slice();
+  if(forcedMid){
+    /* Drop forcedMid from text order and insert it between the remaining endpoints */
+    orderedCities=orderedCities.filter(x=>x.c.iata!==forcedMid.iata);
+    if(orderedCities.length>=2){
+      orderedCities=[orderedCities[0], {c:forcedMid}, ...orderedCities.slice(1)];
+    }else if(orderedCities.length===1){
+      orderedCities=[orderedCities[0], {c:forcedMid}];
+    }
+  }
+  /* If "via X" was named and we have exactly 2 OTHER cities, treat as a single
+   * hop A->B via X (not a multi-stop). Otherwise leave via in the stop list. */
+  if(via){
+    const others=orderedCities.filter(x=>x.c.iata!==via.iata);
+    if(others.length===2){
+      orderedCities=others;
+    }
+  }
+  const multiStop = orderedCities.length>=3 || (orderedCities.length>=2 && hasSequenceWord) || (forcedMid && orderedCities.length>=2);
+  if(multiStop){
+    const stops=orderedCities.map(x=>x.c);
+    return{kind:'itinerary',raw,stops,prefer,mode,legModes:detectLegModes(raw,stops),timeWin};
+  }
+  /* Single-hop routing — exactly two cities (optionally one explicit via) */
+  if(orderedCities.length>=2&&(wantsRoute||orderedCities.length>=2)){
+    return{kind:'route',from:orderedCities[0].c,to:orderedCities[orderedCities.length-1].c,via,prefer,mode,timeWin};
   }
   if(cities.length===1){
     if(wantsWeather)return{kind:'weather',city:cities[0].c};
@@ -1422,23 +1683,216 @@ function sortByPreference(items,prefer,kind){
   }
   return items;
 }
+
+/* Per-leg mode: assign each flight/train keyword in the text to the NEAREST city
+ * by position, so "fly to X then Y by train" correctly gives leg→X=flight,
+ * leg→Y=train regardless of whether the keyword sits before or after the city. */
+function detectLegModes(raw, stops){
+  const t=(raw||'').toLowerCase();
+  const stopPos=stops.map(c=>{
+    let p=-1;
+    [c.name.toLowerCase(), c.iata.toLowerCase()].forEach(n=>{const i=t.indexOf(n); if(i>=0&&(p<0||i<p))p=i;});
+    return p;
+  });
+  const hits=[];
+  let m;
+  const reTrain=/\b(train|trains|rail|railway|irctc|by rail)\b/g;
+  const reFlight=/\b(flight|flights|fly|flying|plane|airline|by air)\b/g;
+  while((m=reTrain.exec(t)))hits.push({pos:m.index,type:'train'});
+  while((m=reFlight.exec(t)))hits.push({pos:m.index,type:'flight'});
+  const stopMode=new Array(stops.length).fill(null);
+  hits.forEach(h=>{
+    let best=-1,bestD=1e9;
+    stopPos.forEach((p,i)=>{ if(p<0)return; const d=Math.abs(p-h.pos); if(d<bestD){bestD=d;best=i;} });
+    if(best>=0 && (stopMode[best]==null || bestD<stopMode[best].d)) stopMode[best]={type:h.type,d:bestD};
+  });
+  const modes=[];
+  for(let i=0;i<stops.length-1;i++){
+    // a leg's mode = keyword nearest its destination; for the first leg, also
+    // accept a keyword that attached to the origin ("by train from A to B").
+    const sm = stopMode[i+1] || (i===0 ? stopMode[0] : null);
+    modes.push(sm ? sm.type : 'all');
+  }
+  return modes;
+}
+
+/* Parse a departure time window from natural language. Returns {after, before}
+ * in minutes-from-midnight (either may be null). */
+function parseTimeWindow(t){
+  t=(t||'').toLowerCase();
+  let after=null, before=null;
+  const to12=(h,ap)=>{h=+h; if(ap==='pm'&&h<12)h+=12; if(ap==='am'&&h===12)h=0; return h;};
+  // explicit "after 6pm" / "after 18:00" / "before 9 am" / "before noon"
+  let m=t.match(/\b(?:after|from|past|later than)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
+  if(m){ let h=m[3]?to12(m[1],m[3]):+m[1]; after=h*60+(m[2]?+m[2]:0); }
+  m=t.match(/\b(?:before|by|earlier than|until|till)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
+  if(m){ let h=m[3]?to12(m[1],m[3]):+m[1]; before=h*60+(m[2]?+m[2]:0); }
+  if(/\bnoon\b/.test(t)){ if(/before\s+noon/.test(t))before=12*60; if(/after\s+noon/.test(t))after=12*60; }
+  if(/\bmidnight\b/.test(t)&&/after/.test(t))after=0;
+  // fuzzy parts of day (only if no explicit window already)
+  if(after==null&&before==null){
+    if(/\bmorning\b/.test(t)){ after=5*60; before=12*60; }
+    else if(/\bafternoon\b/.test(t)){ after=12*60; before=17*60; }
+    else if(/\bevening\b/.test(t)){ after=17*60; }
+    else if(/\bnight\b|\blate\b/.test(t)){ after=20*60; }
+    else if(/\bearly\b/.test(t)){ before=8*60; }
+  }
+  // "around 9am" → ±1h band
+  m=t.match(/\baround\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
+  if(m){ let h=m[3]?to12(m[1],m[3]):+m[1]; const c=h*60+(m[2]?+m[2]:0); after=c-60; before=c+60; }
+  return (after!=null||before!=null) ? {after,before} : null;
+}
+function fmtWin(w){
+  const f=x=>x==null?null:`${String(Math.floor(x/60)).padStart(2,'0')}:${String(x%60).padStart(2,'0')}`;
+  if(w.after!=null&&w.before!=null)return `${f(w.after)}\u2013${f(w.before)}`;
+  if(w.after!=null)return `after ${f(w.after)}`;
+  return `before ${f(w.before)}`;
+}
+function depMinFromIso(iso){ try{const d=new Date(iso); if(isNaN(d))return null; return d.getHours()*60+d.getMinutes();}catch(e){return null;} }
+function depMinFromHHMM(s){ const m=/(\d{1,2}):(\d{2})/.exec(s||''); return m?(+m[1])*60+(+m[2]):null; }
+function inTimeWindow(depMin,w){ if(!w||depMin==null)return true; if(w.after!=null&&depMin<w.after)return false; if(w.before!=null&&depMin>w.before)return false; return true; }
+/* Plan a multi-stop trip locally (offline fallback), leg by leg through the
+ * given ordered stops, honouring the cheapest / fastest preference. */
+async function planMultiStopLocal(stops,opts={}){
+  const prefer=opts.prefer||'best', mode=opts.mode||'all';
+  const idxs=stops.map(c=>CITIES.findIndex(x=>x.iata===c.iata)).filter(i=>i>=0);
+  if(idxs.length<2){stream('Need at least two valid cities for a trip');return;}
+  S.routeMode=null;S.selected=null;syncQI();
+  const layer=$('conn-layer');layer.innerHTML='';
+  const label=prefer==='cheap'?'CHEAPEST':prefer==='fast'?'FASTEST':'BEST';
+  stream(`Planning ${label} multi-stop trip: ${idxs.map(i=>CITIES[i].iata).join(' \u2192 ')}`,'ORCH');
+  setAgent(0,'active');setAgent(3,'active');
+  pushHistory(`trip ${idxs.map(i=>CITIES[i].iata.toLowerCase()).join(' ')}${prefer!=='best'?' ['+prefer+']':''}`);
+  S.cmdCount++;$('tel-cmd').textContent=S.cmdCount;
+  /* Draw all legs + show a "querying live data" placeholder immediately */
+  for(let s=0;s<idxs.length-1;s++){
+    const A=CITIES[idxs[s]],B=CITIES[idxs[s+1]];
+    const mx=(A.x+B.x)/2,my=(A.y+B.y)/2-16;
+    layer.appendChild(el('path',{class:'conn',d:`M${A.x},${A.y} Q${mx},${my} ${B.x},${B.y}`,'stroke-width':'2'}));
+  }
+  $('routes-head').textContent='\u25A0 '+idxs.map(i=>CITIES[i].iata).join(' \u2192 ');
+  $('routes').innerHTML='<div class="empty">Querying live flight + train data\u2026</div>';
+  showOverlay(idxs.map(i=>CITIES[i].iata).join(' \u2192 '));
+  stream('Querying live data per leg...','PLAN');
+  /* Fetch live data for every leg in parallel */
+  const legPairs=[];
+  for(let s=0;s<idxs.length-1;s++)legPairs.push([CITIES[idxs[s]],CITIES[idxs[s+1]]]);
+  const liveResults=await Promise.all(legPairs.map(([A,B])=>fetchLiveRoute(A,B).catch(()=>null)));
+  S.toolCount+=legPairs.length*2;$('tel-tool').textContent=S.toolCount;
+  let html='', totalMin=0, totalLow=0, totalHigh=0, legNo=0, liveLegs=0, gaps=0;
+  const legModes=opts.legModes||[];
+  const win=opts.timeWin;
+  for(let s=0;s<legPairs.length;s++){
+    const [A,B]=legPairs[s]; legNo++;
+    const legMode=legModes[s]||mode||'all';      // per-leg mode: "train to Agra" only affects that leg
+    const mTag = legMode==='train'?' \u00B7 TRAIN':legMode==='flight'?' \u00B7 FLIGHT':'';
+    const legHead=`<div style="font-size:10px;color:var(--primary);letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 5px">LEG ${legNo}: ${A.iata} \u2192 ${B.iata}${mTag}</div>`;
+    const live=liveResults[s];
+    let liveFlights=[], liveTrains=[], isLive=false;
+    if(live && (live.flights.length||live.trains.length)){
+      liveFlights=legMode!=='train'?[...(live.flights||[])]:[];
+      liveTrains=legMode!=='flight'?[...(live.trains||[])]:[];
+      if(win){
+        liveFlights=liveFlights.filter(f=>inTimeWindow(depMinFromIso(f.depScheduled),win));
+        liveTrains=liveTrains.filter(t=>inTimeWindow(depMinFromHHMM(t.depTime),win));
+      }
+      if(liveFlights.length||liveTrains.length){isLive=true; liveLegs++;}
+      if(prefer==='fast') liveFlights.sort((a,b)=>parseDur(durFromIso(a.depScheduled,a.arrScheduled))-parseDur(durFromIso(b.depScheduled,b.arrScheduled)));
+    }
+    /* Also pull reference data for fallback and cost/duration totalling */
+    const key=routeKey(A.iata,B.iata);
+    const R=key?ROUTES[key]:null;
+    let refFlights=legMode!=='train'?sortByPreference(R?(R.flights||[]).slice():[],prefer,'flight'):[];
+    let refTrains=legMode!=='flight'?sortByPreference(R?(R.trains||[]).slice():[],prefer,'train'):[];
+    if(win)refTrains=refTrains.filter(t=>inTimeWindow(depMinFromHHMM(t.dep),win));
+    if(!liveFlights.length && !liveTrains.length && !refFlights.length && !refTrains.length){
+      /* distance estimate as last resort */
+      const dx=(A.lon-B.lon),dy=(A.lat-B.lat);
+      const km=Math.round(Math.sqrt(dx*dx+dy*dy)*111);
+      const estMin=Math.round(km/0.75), estLow=Math.round(km*4), estHigh=Math.round(km*9);
+      totalMin+=estMin; totalLow+=estLow; totalHigh+=estHigh; gaps++;
+      const why = legMode!=='all' ? `No ${legMode} option on file for this pair` : 'No live or reference data for this pair';
+      html+=legHead+`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708/\uD83D\uDE86 Estimated</span><span class="rt-type">EST</span></div><div class="rt-info">~${km} km &middot; ~${Math.floor(estMin/60)}h ${estMin%60}m &middot; <span>\u20B9${estLow.toLocaleString('en-IN')}\u2013${estHigh.toLocaleString('en-IN')}</span><br><span style="color:var(--vmuted)">${why}</span></div></div>`;
+      continue;
+    }
+    let legHtml='';
+    if(isLive){
+      /* Render live options using same field names as renderRouteDetail */
+      liveFlights.slice(0,2).forEach(f=>{
+        const dep=fmtTime(f.depScheduled),arr=fmtTime(f.arrScheduled);
+        const dur=durFromIso(f.depScheduled,f.arrScheduled);
+        const delay=f.depDelay?` <span style="color:var(--warn)">+${f.depDelay}min</span>`:'';
+        const durMin=parseDur(dur)||0; totalMin+=durMin;
+        const fare=fareForFlight(A.iata,B.iata,f.airline);
+        const fareHtml=fare?' &middot; <span>'+fare+'</span>':'';
+        const rr=refRouteFor(A.iata,B.iata);
+        if(rr&&rr.flights&&rr.flights.length){totalLow+=Math.min(...rr.flights.map(x=>x.low||9e9));totalHigh+=Math.max(...rr.flights.map(x=>x.high||x.low||0));}
+        legHtml+=`<div class="rt"><div class="rt-head"><span class="rt-name">\u2708 ${f.airline} ${f.flightNum}<span style="color:var(--primary);font-size:7px;border:1px solid var(--primary);padding:0 3px;border-radius:2px;margin-left:5px">LIVE</span></span><span class="rt-type flight">FLIGHT</span></div><div class="rt-info">Dep <span>${dep}</span> &middot; Arr <span>${arr}</span>${dur?' &middot; <span>'+dur+'</span>':''}${fareHtml}${delay}</div></div>`;
+      });
+      liveTrains.slice(0,2).forEach(t=>{
+        const durMin=parseDur(t.duration)||0; totalMin+=durMin;
+        const fare=fareForTrain(A.iata,B.iata);
+        const fareHtml=fare?' &middot; <span>'+fare+'</span>':'';
+        legHtml+=`<div class="rt"><div class="rt-head"><span class="rt-name">\uD83D\uDE86 ${t.number} ${t.name}<span style="color:var(--primary);font-size:7px;border:1px solid var(--primary);padding:0 3px;border-radius:2px;margin-left:5px">LIVE</span></span><span class="rt-type train">TRAIN</span></div><div class="rt-info">Dep <span>${t.depTime||'--'}</span> &middot; Arr <span>${t.arrTime||'--'}</span> &middot; <span>${t.duration||'--'}</span>${fareHtml}${t.classes?'<br>Classes: <span>'+t.classes+'</span>':''}</div></div>`;
+      });
+    }else{
+      /* Reference schedule fallback */
+      const cf=refFlights[0], ct=refTrains[0];
+      let pick=null,pickKind='';
+      if(legMode==='flight'&&cf){pick=cf;pickKind='flight';}
+      else if(legMode==='train'&&ct){pick=ct;pickKind='train';}
+      else if(prefer==='cheap'){const fl=cf?cf.low||9e9:9e9,tl=ct?ct.low||9e9:9e9;if(tl<=fl&&ct){pick=ct;pickKind='train';}else if(cf){pick=cf;pickKind='flight';}else if(ct){pick=ct;pickKind='train';}}
+      else if(prefer==='fast'){const fd=cf?parseDur(cf.dur):9e9,td=ct?parseDur(ct.dur):9e9;if(fd<=td&&cf){pick=cf;pickKind='flight';}else if(ct){pick=ct;pickKind='train';}else if(cf){pick=cf;pickKind='flight';}}
+      else{pick=cf||ct;pickKind=cf?'flight':'train';}
+      if(pick){
+        const dur=parseDur(pick.dur)||0; totalMin+=dur;
+        if(pick.low)totalLow+=pick.low; if(pick.high)totalHigh+=(pick.high||pick.low);
+        const icon=pickKind==='flight'?'\u2708':'\uD83D\uDE86';
+        const op=pick.al||pick.nm||pickKind; const cost=pick.cost||(pick.low?`\u20B9${pick.low.toLocaleString('en-IN')}+`:'');
+        legHtml+=`<div class="rt"><div class="rt-head"><span class="rt-name">${icon} ${op}<span style="color:var(--vmuted);font-size:7px;margin-left:5px">REF</span></span><span class="rt-type ${pickKind}">${pickKind.toUpperCase()}</span></div><div class="rt-info">Duration <span>${pick.dur||'--'}</span>${cost?' &middot; <span>'+cost+'</span>':''}${pick.freq?' &middot; Freq <span>'+pick.freq+'</span>':''}</div></div>`;
+      }
+    }
+    html+=legHead+legHtml;
+  }
+  const hrs=Math.floor(totalMin/60),mins=totalMin%60;
+  const totalCost=totalLow?`\u20B9${totalLow.toLocaleString('en-IN')}\u2013${totalHigh.toLocaleString('en-IN')}`:'\u2014';
+  const srcNote=liveLegs===legPairs.length?'All legs live':liveLegs>0?`${liveLegs}/${legPairs.length} legs live`:'Reference schedule';
+  const summary=`<div class="rt" style="border-color:var(--primary)"><div class="rt-head"><span class="rt-name">${label} TRIP \u00B7 ${legPairs.length} LEGS</span><span class="rt-type">${srcNote}</span></div><div class="rt-info">Total <span>~${hrs}h ${mins}m</span> &middot; Est. fare <span>${totalCost}</span></div></div>`;
+  const winBanner = win ? `<div class="src-note">Departure window: ${fmtWin(win)} \u2014 options outside it filtered out</div>` : '';
+  $('routes').innerHTML=summary+winBanner+html;
+  setAgent(0,'idle');setAgent(3,'idle');
+  stream(gaps?`Trip planned \u2014 ${legPairs.length} legs (${gaps} estimated)`:`Trip planned \u2014 ${legPairs.length} legs, ~${hrs}h ${mins}m, ${srcNote.toLowerCase()}`,'PLAN');
+  {
+    let tspeech=`${label} trip planned. ${legPairs.length} legs, approximately ${hrs} hour${hrs===1?'':'s'} ${mins} minutes.`;
+    if(totalLow)tspeech+=` Estimated fare ${totalCost.replace(/\u20B9/g,'').replace('\u2013',' to ')} rupees.`;
+    speak(tspeech);
+  }
+}
 function runCommand(raw){
   const text=raw.trim();if(!text)return;
   $('cmd-input').value='';
   const intent=parseIntent(text);
   switch(intent.kind){
     case 'itinerary':
+      /* If we parsed an ordered stop list, ALWAYS plan it locally right away so
+       * the user gets instant visual feedback (legs drawn, cheapest/fastest per
+       * leg, trip total) — this works with or without a backend. */
+      if(intent.stops && intent.stops.length>=2){
+        planMultiStopLocal(intent.stops,{prefer:intent.prefer,mode:intent.mode,legModes:intent.legModes,timeWin:intent.timeWin});
+        pushHistory(text);
+      }
+      /* Additionally hand it to the swarm when connected, for the richer
+       * multi-modal plan; its result will replace the local one when it arrives. */
       if(ws && ws.readyState===WebSocket.OPEN){
         ws.send(JSON.stringify({type:'command', text}));
-        stream(`Sent to VOYAGER: "${text}"`,'YOU');
-        pushHistory(text);
+        stream(`Sent to VOYAGER swarm: "${text}"`,'YOU');
         S.cmdCount++;$('tel-cmd').textContent=S.cmdCount;
-      }else{
+      }else if(!(intent.stops && intent.stops.length>=2)){
         stream('Backend not connected — cannot plan itinerary');
       }
       return;
     case 'route':
-      routeCommand(intent.from.iata,intent.to.iata,{prefer:intent.prefer,mode:intent.mode,via:intent.via});return;
+      routeCommand(intent.from.iata,intent.to.iata,{prefer:intent.prefer,mode:intent.mode,via:intent.via,timeWin:intent.timeWin});return;
     case 'weather':case 'aqi':case 'delays':case 'inspect':
       const idx=CITIES.findIndex(c=>c.iata===intent.city.iata);
       if(idx>=0)selectCity(idx);return;
@@ -1459,6 +1913,8 @@ function runCommand(raw){
         $('disruptions').innerHTML=html;$('routes-head').textContent='\u25A0 ROUTES';
         $('routes').innerHTML='<div class="empty">Use route [city] [city]</div>';
         stream('Scan complete \u2014 10 nodes checked','WTHR');setAgent(0,'idle');setAgent(1,'idle');
+        const crit=results.filter(({c,d})=>{const n=d?calcNAQI(d.a,d.wq).naqi:null;return d&&analyzeDisruptions(c,d.w,n).some(a=>a.level==='crit');}).length;
+        speak(crit?`Sector scan complete. ${crit} city${crit===1?'':'ies'} with critical alerts.`:'Sector scan complete. All ten cities nominal.');
       });return;
     case 'help':
       stream('Try: "best route delhi to mumbai" \u2022 "cheapest ccu to blr" \u2022 "fastest train delhi mumbai" \u2022 "route ccu cok via chennai" \u2022 "weather in delhi" \u2022 "scan"');pushHistory('help');return;

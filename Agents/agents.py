@@ -21,6 +21,49 @@ def normalize_date(date_str: str) -> str:
             continue
     return date_str  # last resort — will likely fail isoformat parse below
 
+def parse_time(time_str: str):
+    """Parse a time string into (hour, minute), tolerating HH:MM, HH:MM:SS,
+    and 12-hour forms like '6:00 PM' / '6 pm'. Returns None if unparseable."""
+    from datetime import datetime as _dt
+    s = (time_str or "").strip().upper().replace(".", "")
+    if not s:
+        return None
+    for fmt in ("%H:%M:%S", "%H:%M", "%I:%M %p", "%I %p", "%I:%M%p", "%I%p"):
+        try:
+            t = _dt.strptime(s, fmt)
+            return (t.hour, t.minute)
+        except ValueError:
+            continue
+    return None
+
+def parse_dt(date_str: str, time_str: str):
+    """Combine a date and time into a datetime, robust to messy formats.
+    Returns None if either piece can't be parsed."""
+    from datetime import datetime as _dt
+    d = normalize_date(date_str)
+    hm = parse_time(time_str)
+    if not d or hm is None:
+        return None
+    try:
+        base = _dt.strptime(d, "%Y-%m-%d")
+        return base.replace(hour=hm[0], minute=hm[1])
+    except ValueError:
+        return None
+    
+def _build_time_hint(date: str = "", depart_after: str = "", depart_before: str = "") -> str:
+    """Build a natural-language constraint line for the agent prompt from the
+    parsed per-leg date / time-window hints. Returns '' when nothing is set."""
+    parts = []
+    if date:
+        parts.append(f"The journey date is {date} (use this exact departure_date).")
+    if depart_after and depart_before:
+        parts.append(f"Departure time must be between {depart_after} and {depart_before}.")
+    elif depart_after:
+        parts.append(f"Departure time must be at or after {depart_after}.")
+    elif depart_before:
+        parts.append(f"Departure time must be at or before {depart_before}.")
+    return ("Time constraints: " + " ".join(parts)) if parts else ""
+
 def normalize_leg(data: dict) -> dict:
     # type normalization
     if data.get("type") == "train":
@@ -33,6 +76,21 @@ def normalize_leg(data: dict) -> dict:
         data["status"] = "confirmed"
     if data.get("status") == "scheduled":
         data["status"] = "proposed"
+    # cost normalization — the LLM often returns "₹4,500", "4500 INR", "Rs. 4500"
+    # or even an empty string. TravelLeg.cost is a float, so a stray string would
+    # make validation fail and the ENTIRE leg would be silently dropped (which
+    # looked like "first leg missing" and "no price"). Coerce to a clean number.
+    raw_cost = data.get("cost", None)
+    if isinstance(raw_cost, str):
+        # Strip thousands separators, then grab the first real number (handles
+        # "₹4,500", "Rs. 5200", "4500 INR", "1,25,000", "4500.00").
+        m = re.search(r"\d+(?:\.\d+)?", raw_cost.replace(",", ""))
+        try:
+            data["cost"] = float(m.group()) if m else 0.0
+        except ValueError:
+            data["cost"] = 0.0
+    elif raw_cost is None:
+        data["cost"] = 0.0
     return data
 
 def clean_json(text: str) -> str:
@@ -64,6 +122,83 @@ def clean_json(text: str) -> str:
                 if depth == 0:
                     return text[:i+1]
     return text
+
+def parse_legs(user_prompt: str) -> list:
+    """Extract the ordered list of journey legs from a user prompt.
+
+    Returns a list of dicts:
+      [{"from": str, "to": str,
+        "mode_hint": "flight"|"rail"|"any",
+        "prefer": "cheap"|"fast"|"best",
+        "date": str|"",          # YYYY-MM-DD if the user gave one, else ""
+        "depart_after": str|"",  # HH:MM (24h) lower bound, else ""
+        "depart_before": str|""  # HH:MM (24h) upper bound, else ""
+      }]
+
+    Multi-stop trips like "Kolkata to Delhi then Bangalore then Hyderabad" become
+    three legs (CCU->DEL, DEL->BLR, BLR->HYD). "Break/stopover/halt at M" splits
+    into two legs. Single trips return one leg.
+
+    Also extracts per-leg time windows so requests like "flight to Mumbai after
+    6pm" or "morning train to Agra" produce grounded departure times.
+
+    This runs ONE small LLM call up front; the heavy flight/rail agents then run
+    per-leg, so they each get a clean single-hop request to reason about.
+    """
+    prompt = f"""You are a journey parser. Read this travel request and extract the
+ordered list of single-hop legs (each leg is one source -> one destination).
+For "X to Y then Z" output two legs: X->Y, then Y->Z.
+For "stopover/break/halt/via M from X to Y" output two legs: X->M, then M->Y.
+Detect cheapest / fastest / shortest preferences ("cheap" / "fast" / "best").
+Detect a mode hint if the user asked specifically for flight or train ("flight" / "rail" / "any").
+Detect any departure time window the user gives for a leg and convert to 24h HH:MM:
+  - "after 6pm" / "evening"  -> depart_after "18:00"
+  - "before noon" / "morning" -> depart_before "12:00"
+  - "around 9am"             -> depart_after "08:00", depart_before "10:00"
+  - "night"                  -> depart_after "20:00"
+  - "afternoon"              -> depart_after "12:00", depart_before "17:00"
+If the user gives a calendar date for a leg, output it as date "YYYY-MM-DD"; otherwise "".
+
+User Request:
+{user_prompt}
+
+Return ONLY a JSON array. Each element must be exactly:
+{{"from": "<city>", "to": "<city>", "mode_hint": "flight"|"rail"|"any", "prefer": "cheap"|"fast"|"best", "date": "<YYYY-MM-DD or empty>", "depart_after": "<HH:MM or empty>", "depart_before": "<HH:MM or empty>"}}
+Use full city names (e.g. "Kolkata" not "CCU"). No markdown, no explanation, no extra keys.
+Output must be parseable by Python json.loads()."""
+    try:
+        raw = ask_llm(prompt)
+        cleaned = clean_json(raw)
+        legs = json.loads(cleaned)
+        if not isinstance(legs, list):
+            return []
+        out = []
+        for leg in legs:
+            if not isinstance(leg, dict):
+                continue
+            f = (leg.get("from") or "").strip()
+            t = (leg.get("to") or "").strip()
+            if not f or not t or f.lower() == t.lower():
+                continue
+            mode_hint = leg.get("mode_hint", "any")
+            if mode_hint not in ("flight", "rail", "any"):
+                mode_hint = "any"
+            prefer = leg.get("prefer", "best")
+            if prefer not in ("cheap", "fast", "best"):
+                prefer = "best"
+            out.append({
+                "from": f,
+                "to": t,
+                "mode_hint": mode_hint,
+                "prefer": prefer,
+                "date": (leg.get("date") or "").strip(),
+                "depart_after": (leg.get("depart_after") or "").strip(),
+                "depart_before": (leg.get("depart_before") or "").strip(),
+            })
+        return out
+    except Exception as e:
+        print(f"[parse_legs] Error: {e} — falling back to single-leg interpretation")
+        return []
 
 class TravelData:
     _token = None
@@ -437,6 +572,86 @@ class FlightAgent(BaseAgent):
             self.log(state, f"Proposed Flight: {flight_leg.from_location} -> {flight_leg.to_location}")
         except Exception as e:
             self.log(state, f"Error generating flight: {str(e)}")
+    
+    def run_leg(self, state: TravelState, from_loc: str, to_loc: str, prefer: str = "best",
+                date: str = "", depart_after: str = "", depart_before: str = ""):
+        """Generate ONE flight leg for an explicit from->to pair.
+        Used by the multi-stop swarm so each leg gets a focused, grounded prompt."""
+        self.log(state, f"Routing flight leg {from_loc} -> {to_loc} (prefer: {prefer})...")
+        # Skip if this exact leg already exists
+        if any(leg.type == "flight" and leg.from_location.lower() == from_loc.lower()
+               and leg.to_location.lower() == to_loc.lower() for leg in state.current_itinerary):
+            self.log(state, f"Flight leg {from_loc}->{to_loc} already present. Skipping.")
+            return
+        prefer_hint = {"cheap": "Choose the cheapest available option.",
+                       "fast":  "Choose the fastest available option.",
+                       "best":  "Balance speed and cost."}.get(prefer, "Balance speed and cost.")
+        time_hint = _build_time_hint(date, depart_after, depart_before)
+        try:
+            response = ask_llm(f"""
+            Generate a valid flight itinerary for ONE leg only.
+            From: {from_loc}
+            To: {to_loc}
+            Preference: {prefer_hint}
+            {time_hint}
+            Use realistic Indian domestic flight durations and INR costs.
+            departure_time and arrival_time must be 24-hour "HH:MM:SS".
+            departure_date and arrival_date must be "YYYY-MM-DD".
+            Return ONLY ONE valid JSON object — do not repeat, duplicate, or output multiple JSON blocks.
+            Example format:
+            {{
+            "type":"flight",
+            "mode":"air",
+            "operator":" ",
+            "identification_number":" ",
+            "flight_name":" ",
+            "from_location":"{from_loc}",
+            "to_location":"{to_loc}",
+            "departure_date":" ",
+            "departure_time":" ",
+            "arrival_date":" ",
+            "arrival_time":" ",
+            "cost": ,
+            "status":"proposed"
+            }}
+            Output EXACTLY ONE JSON object. No markdown. No explanation. No trailing text after the closing brace. Output must be parseable by Python json.loads().""")
+            flight_data = json.loads(clean_json(response))
+            if "itinerary" in flight_data:
+                flight_json = next((leg for leg in flight_data["itinerary"] if leg.get("type") == "flight"), None)
+            elif "legs" in flight_data:
+                flight_json = next((leg for leg in flight_data["legs"] if leg.get("type") == "flight"), None)
+            elif flight_data.get("type") == "flight":
+                flight_json = flight_data
+            else:
+                flight_json = None
+            if flight_json is None:
+                self.log(state, f"LLM returned no valid flight leg for {from_loc}->{to_loc}.")
+                return
+            flight_json = normalize_leg(flight_json)
+            # Force from/to to the requested values (LLM may have hallucinated)
+            flight_json["from_location"] = from_loc
+            flight_json["to_location"] = to_loc
+            # Force the requested journey date if the user specified one.
+            if date:
+                flight_json["departure_date"] = date
+                if not flight_json.get("arrival_date"):
+                    flight_json["arrival_date"] = date
+            # Normalize date formats to YYYY-MM-DD so validation never crashes.
+            flight_json["departure_date"] = normalize_date(flight_json.get("departure_date", ""))
+            flight_json["arrival_date"] = normalize_date(flight_json.get("arrival_date", "")) or flight_json["departure_date"]
+            if flight_json.get("status") not in ("proposed", "confirmed"):
+                flight_json["status"] = "proposed"
+            flight_leg = ItineraryLeg(leg_index=len(state.current_itinerary), **flight_json)
+            try:
+                api_data = TravelData.get_live_flight(flight_leg.from_location, flight_leg.to_location)
+                flight_leg.operator = api_data["real_operator"]
+                flight_leg.identification_number = api_data["real_identification_no"]
+            except Exception as api_e:
+                self.log(state, f"Live flight lookup failed for {from_loc}->{to_loc}: {api_e}")
+            state.current_itinerary.append(flight_leg)
+            self.log(state, f"Proposed Flight: {flight_leg.from_location} -> {flight_leg.to_location}")
+        except Exception as e:
+            self.log(state, f"Error generating flight leg {from_loc}->{to_loc}: {str(e)}")
 
 class RailAgent(BaseAgent):
     def run(self,state:TravelState):
@@ -526,52 +741,95 @@ class RailAgent(BaseAgent):
             self.log(state, f"Error generating rail: {str(e)}")
 
 class ValidatorAgent(BaseAgent):
-    def run(self,state:TravelState):
+    # City aliases so "Howrah"/"New Delhi" connect correctly to "Kolkata"/"Delhi".
+    CITY_ALIASES = {
+        "howrah": "kolkata",
+        "new delhi": "delhi",
+        "bengaluru": "bangalore",
+        "bombay": "mumbai",
+        "madras": "chennai",
+        "calcutta": "kolkata",
+    }
+
+    # Minimum safe transfer buffer (minutes) between two consecutive legs,
+    # keyed by (arriving_mode -> departing_mode). Domestic India — no customs.
+    MIN_TRANSFER_MIN = {
+        ("flight", "rail"): 120,   # land, exit airport, reach station
+        ("flight", "flight"): 90,  # connecting flights
+        ("rail", "flight"): 150,   # station -> airport + check-in
+        ("rail", "rail"): 30,      # platform change
+    }
+
+    def _canon(self, city: str) -> str:
+        c = (city or "").strip().lower()
+        return self.CITY_ALIASES.get(c, c)
+
+    def run(self, state: TravelState):
         self.log(state, "Executing cross-modal timeline validation...")
         state.validation_errors = []
         state.is_validated = False
-        if not state.current_itinerary:
-            state.validation_errors.append("No itinerary generated.")
-        flight = next((leg for leg in state.current_itinerary if leg.type=="flight"),None)
-        rail = next((leg for leg in state.current_itinerary if leg.type=="rail"),None)
-        if flight and rail:
-            from datetime import datetime
-            f_arr_date = normalize_date(flight.arrival_date)
-            r_dep_date = normalize_date(rail.departure_date)
-            f_arr = datetime.fromisoformat(f"{f_arr_date}T{flight.arrival_time}")
-            r_dep = datetime.fromisoformat(f"{r_dep_date}T{rail.departure_time}")
-            time_difference = (r_dep - f_arr).total_seconds() / 60
-            if time_difference < 120: # Requires a minimum 2-hour transfer window
-                state.validation_errors.append(f"Temporal Breach: Layover is only {time_difference} mins. Need 120+ mins for safe customs extraction.")
-            CITY_ALIASES = {
-                "kolkata": "kolkata",
-                "howrah": "kolkata",
-                "new delhi": "delhi",
-                "delhi": "delhi"
-            }
 
-            flight_dest = CITY_ALIASES.get(
-                flight.to_location.lower(),
-                flight.to_location.lower()
-            )
-
-            rail_origin = CITY_ALIASES.get(
-                rail.from_location.lower(),
-                rail.from_location.lower()
-            )
-            if flight_dest != rail_origin:
-                state.validation_errors.append("Route Breach: Rail journey does not begin where flight ends.")
-        if flight and not rail:
-            state.validation_errors.append("Incomplete itinerary: missing required rail segment.")
-        if rail and not flight:
-            state.validation_errors.append("Incomplete itinerary: missing required flight segment.")
-        if not flight and not rail:
+        legs = list(state.current_itinerary)
+        if not legs:
             state.validation_errors.append("No itinerary generated.")
+            self.log(state, "Validation Rejection: no legs produced.")
+            return
+
+        # Validate in journey order.
+        legs_sorted = sorted(legs, key=lambda l: l.leg_index)
+
+        for i, leg in enumerate(legs_sorted):
+            # Per-leg sanity: each leg must have endpoints and a non-negative cost.
+            if not leg.from_location or not leg.to_location:
+                state.validation_errors.append(
+                    f"Leg {i+1} ({leg.type}) is missing an origin or destination."
+                )
+            if leg.cost is not None and leg.cost < 0:
+                state.validation_errors.append(
+                    f"Leg {i+1} ({leg.type}) has an invalid negative cost."
+                )
+
+            if i == 0:
+                continue
+
+            prev = legs_sorted[i - 1]
+
+            # 1) Route continuity: this leg must start where the previous one ended.
+            if self._canon(prev.to_location) != self._canon(leg.from_location):
+                state.validation_errors.append(
+                    f"Route Breach: leg {i+1} starts at '{leg.from_location}' but "
+                    f"leg {i} ended at '{prev.to_location}'. The journey is not continuous."
+                )
+
+            # 2) Timeline continuity: this leg must depart after the previous one
+            #    arrives, with a realistic transfer buffer for the mode change.
+            prev_arr = parse_dt(prev.arrival_date, prev.arrival_time)
+            this_dep = parse_dt(leg.departure_date, leg.departure_time)
+            if prev_arr is None or this_dep is None:
+                state.validation_errors.append(
+                    f"Could not verify timing between leg {i} and leg {i+1} "
+                    f"(unreadable date/time). Please re-run."
+                )
+            else:
+                gap_min = (this_dep - prev_arr).total_seconds() / 60.0
+                need = self.MIN_TRANSFER_MIN.get((prev.type, leg.type), 60)
+                if gap_min < 0:
+                    state.validation_errors.append(
+                        f"Temporal Breach: leg {i+1} departs before leg {i} arrives "
+                        f"({int(gap_min)} min)."
+                    )
+                elif gap_min < need:
+                    state.validation_errors.append(
+                        f"Temporal Breach: only {int(gap_min)} min between leg {i} "
+                        f"({prev.type}) arrival and leg {i+1} ({leg.type}) departure — "
+                        f"need at least {need} min for a safe {prev.type}->{leg.type} transfer."
+                    )
+
         if not state.validation_errors:
             state.is_validated = True
             for leg in state.current_itinerary:
                 leg.status = "confirmed"
-            self.log(state, "Cleared. Itinerary meets all financial and structural constraints.")
+            self.log(state, f"Cleared. {len(legs_sorted)}-leg itinerary is continuous and well-timed.")
         else:
             state.is_validated = False
             self.log(state, f"Validation Rejection: {state.validation_errors}")

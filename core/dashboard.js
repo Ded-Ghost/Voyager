@@ -58,8 +58,9 @@ async function handleFlights(req, res, query) {
       res.writeHead(200, {'Content-Type':'application/json'}); res.end(JSON.stringify(out));
       return;
     }
-    const flights = (j.data || []).map(f => ({
+    let flights = (j.data || []).map(f => ({
       airline: f.airline?.name || 'Unknown',
+      airlineIata: (f.airline?.iata || '').toUpperCase(),
       flightNum: f.flight?.iata || f.flight?.number || '',
       status: f.flight_status || 'unknown',
       depScheduled: f.departure?.scheduled || null,
@@ -72,6 +73,23 @@ async function handleFlights(req, res, query) {
       terminal: f.departure?.terminal || null,
       gate: f.departure?.gate || null,
     }));
+
+    // This is a DOMESTIC India app. AviationStack returns codeshares — the same
+    // physical flight marketed by several (often international) carriers with
+    // identical dep/arr times. Keep only Indian domestic operators, then dedupe
+    // by departure+arrival signature so one flight isn't listed five times.
+    const DOMESTIC_IATA = ['6E','AI','IX','UK','SG','QP','9I','S5','S9','I5','G8'];
+    const DOMESTIC_NAME = /indigo|air india|spicejet|vistara|akasa|alliance air|star air|flybig|go ?first|airasia/i;
+    const isDomestic = f => DOMESTIC_IATA.includes(f.airlineIata) || DOMESTIC_NAME.test(f.airline || '');
+    const domestic = flights.filter(isDomestic);
+    if (domestic.length) flights = domestic; // only narrow when we still have results
+    const seen = new Set();
+    flights = flights.filter(f => {
+      const sig = `${f.depScheduled || ''}|${f.arrScheduled || ''}`;
+      if (seen.has(sig)) return false;
+      seen.add(sig);
+      return true;
+    });
     const out = { flights, fetchedAt: new Date().toISOString() };
     cacheSet(cacheKey, out);
     res.writeHead(200, {'Content-Type':'application/json'}); res.end(JSON.stringify(out));

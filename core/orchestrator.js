@@ -22,8 +22,8 @@ function cleanKey(k) {
   return (k || '').trim().replace(/^["']|["']$/g, '').replace(/\s+/g, '');
 }
 const OPENROUTER_KEY = cleanKey(process.env.OPENROUTER_API_KEY);
-const GROQ_KEY       = cleanKey(process.env.GROQ_API_KEY);
-const GROQ_MODEL     = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+const GITHUB_TOKEN   = cleanKey(process.env.GITHUB_TOKEN);
+const GITHUB_MODEL   = (process.env.GITHUB_MODEL || 'gpt-4o-mini').trim();
 
 // Model selection — OpenRouter's free-tier lineup rotates constantly (models get
 // pulled to paid-only or replaced within days), so hardcoding model IDs is fragile.
@@ -103,21 +103,16 @@ function openrouterKeyMissing() {
 
 // A stray/placeholder GROQ_API_KEY (left in .env or inherited from shell env)
 // must never silently swallow a real OpenRouter error.
-function groqKeyUsable() {
-  if (!GROQ_KEY) return false;
-  if (/^(YOUR_|REPLACE_|<|xxxx)/i.test(GROQ_KEY)) return false;
-  if (GROQ_KEY.length < 20) return false; // real Groq keys are long (gsk_... ~56 chars)
-  return true;
-}
 
-function maskedGroqKey() {
-  if (!GROQ_KEY) return '(not set)';
-  return GROQ_KEY.length > 10 ? `${GROQ_KEY.slice(0,5)}...${GROQ_KEY.slice(-4)} (${GROQ_KEY.length} chars)` : '(too short)';
-}
 
 function maskedOpenRouterKey() {
   if (!OPENROUTER_KEY) return '(not set)';
   return OPENROUTER_KEY.length > 10 ? `${OPENROUTER_KEY.slice(0,7)}...${OPENROUTER_KEY.slice(-4)} (${OPENROUTER_KEY.length} chars)` : '(too short)';
+}
+
+function maskedGitHubToken() {
+  if (!GITHUB_TOKEN) return '(not set)';
+  return GITHUB_TOKEN.length > 10 ? `${GITHUB_TOKEN.slice(0,10)}...${GITHUB_TOKEN.slice(-4)} (${GITHUB_TOKEN.length} chars)` : '(too short)';
 }
 
 // Dumped into error messages so a misconfigured env is never a silent mystery —
@@ -222,7 +217,6 @@ async function callOpenRouter(messages, tools) {
   );
 }
 
-const GITHUB_TOKEN = cleanKey(process.env.GITHUB_TOKEN);
 
 async function callGitHubModels(messages, tools) {
   if (!GITHUB_TOKEN) throw new Error('No GITHUB_TOKEN set');
@@ -242,32 +236,18 @@ async function callGitHubModels(messages, tools) {
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`GitHub Models API error ${res.status}: ${err}`);
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        `GitHub Models rejected the token (HTTP ${res.status}). The GITHUB_TOKEN in .env ` +
+        `is invalid, expired, or lacks Models access. Generate a new token at ` +
+        `https://github.com/settings/tokens and paste it as GITHUB_TOKEN. Detail: ${err.slice(0, 200)}`
+      );
+    }
+    throw new Error(`GitHub Models API error ${res.status}: ${err.slice(0, 300)}`);
   }
   return res.json();
 }
-// ─────────────────────────────────────────────────────────────────────────────
-// GROQ FALLBACK
-// ─────────────────────────────────────────────────────────────────────────────
-async function callGroq(messages, tools) {
-  if (!GROQ_KEY) throw new Error('No GROQ_API_KEY set');
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      max_tokens: 4096,
-      messages,
-      tools,
-      tool_choice: 'auto'
-    })
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Groq API error ${res.status}: ${err}`);
-  }
-  return res.json();
-}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TOOL DEFINITIONS
@@ -673,7 +653,7 @@ async function executeTool(name, input) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COMMAND HANDLER — agentic loop with OpenRouter (free) / Groq fallback
+// COMMAND HANDLER — agentic loop on GitHub Models (Copilot), OpenRouter optional
 // ─────────────────────────────────────────────────────────────────────────────
 async function handleCommand(text, source = 'shell') {
   if (isProcessing) {
@@ -699,42 +679,18 @@ async function handleCommand(text, source = 'shell') {
     while (true) {
       let response;
 
-      // Try OpenRouter first (free models), fall back to Groq only if it has a real,
-      // usable key — a stray/placeholder GROQ_API_KEY must never hide the real error.
-      let usingGroqAsPrimary = false;
-      try {
-        if (GITHUB_TOKEN) {
-          response = await callGitHubModels(messages, TOOLS);
-        } else if (groqKeyUsable()) {
-          usingGroqAsPrimary = true;
-          display.log('WARN', `OPENROUTER_API_KEY appears empty/missing to this process — using Groq (${maskedGroqKey()}) instead. ${envDiagnostics()}`, 'warning');
-          response = await callGroq(messages, TOOLS);
-        } else {
-          throw new Error(`OPENROUTER_API_KEY not set and no usable GROQ_API_KEY fallback. ${envDiagnostics()}`);
-        }
-      } catch (apiErr) {
-        if (usingGroqAsPrimary) {
-          // Groq was used as primary (because OpenRouter key looked missing) and it ALSO failed.
-          throw new Error(
-            `OPENROUTER_API_KEY is empty/missing to this process, so Groq was used instead — and Groq failed too: ` +
-            `${apiErr.message}. ${envDiagnostics()}`
-          );
-        }
-        if (groqKeyUsable() && !apiErr.message.includes('Groq')) {
-          display.log('WARN', `OpenRouter failed — full reason: ${apiErr.message}`, 'warning');
-          display.log('WARN', `Trying Groq fallback (GROQ_API_KEY ${maskedGroqKey()})...`, 'warning');
-          try {
-            response = await callGroq(messages, TOOLS);
-          } catch (groqErr) {
-            // Combine both so neither error gets silently swallowed
-            throw new Error(
-              `OpenRouter failed: ${apiErr.message} | ` +
-              `Groq fallback (key ${maskedGroqKey()}) also failed: ${groqErr.message}`
-            );
-          }
-        } else {
-          throw apiErr;
-        }
+      // Primary provider: GitHub Models (Copilot token). OpenRouter is only used
+      // as a fallback when no GitHub token is configured.
+      if (GITHUB_TOKEN) {
+        response = await callGitHubModels(messages, TOOLS);
+      } else if (!openrouterKeyMissing()) {
+        display.log('API', 'No GITHUB_TOKEN set — falling back to OpenRouter.', 'warning');
+        response = await callOpenRouter(messages, TOOLS);
+      } else {
+        throw new Error(
+          `No LLM provider configured. Set GITHUB_TOKEN (a GitHub PAT, starts with ghp_) ` +
+          `in .env. ${envDiagnostics()}`
+        );
       }
 
       // Track token usage
@@ -803,8 +759,8 @@ async function handleCommand(text, source = 'shell') {
     const msg = err.message || 'Unknown error';
     // Provide clear actionable error messages — only for ACTUAL key problems,
     // not generic errors that happen to contain "401" somewhere in a JSON body.
-    if (msg.startsWith('OPENROUTER_API_KEY not set') || msg.startsWith('OpenRouter rejected your API key')) {
-      const helpMsg = 'API key error. Get a FREE OpenRouter key at https://openrouter.ai/keys → paste it as OPENROUTER_API_KEY in your .env file → restart.';
+    if (/GITHUB_TOKEN not set|GitHub Models rejected the token|No LLM provider configured/.test(msg)) {
+      const helpMsg = 'AI provider error. Set a valid GITHUB_TOKEN (a GitHub PAT with Models access, starts with ghp_) in your .env file, then restart.';
       display.log('VOYAGER', chalk.red(helpMsg), 'alert');
       dash.log('VOYAGER', helpMsg, 'alert');
       dash.reply(helpMsg);
@@ -821,6 +777,30 @@ async function handleCommand(text, source = 'shell') {
 // ─────────────────────────────────────────────────────────────────────────────
 // KEY SELF-TEST — minimal ping to verify the OpenRouter key works
 // ─────────────────────────────────────────────────────────────────────────────
+
+async function verifyGitHubModels() {
+  if (!GITHUB_TOKEN) {
+    return { ok: false, reason: 'GITHUB_TOKEN not set in .env. Add a GitHub PAT (ghp_...) with Models access.' };
+  }
+  try {
+    const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GITHUB_TOKEN}` },
+      body: JSON.stringify({ model: GITHUB_MODEL, max_tokens: 5, messages: [{ role: 'user', content: 'ping' }] }),
+    });
+    if (res.ok) return { ok: true, model: GITHUB_MODEL };
+    const txt = await res.text();
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, reason: `Token rejected (HTTP ${res.status}). Generate a new GitHub token with Models access at https://github.com/settings/tokens and set it as GITHUB_TOKEN in .env. Detail: ${txt.slice(0, 150)}` };
+    }
+    if (res.status === 429) return { ok: true, model: GITHUB_MODEL, warning: 'Rate limited — token is valid, just busy.' };
+    return { ok: false, reason: `HTTP ${res.status}: ${txt.slice(0, 150)}` };
+  } catch (e) {
+    return { ok: false, reason: `Network error: ${e.message}` };
+  }
+}
+
+
 async function verifyOpenRouter() {
   if (openrouterKeyMissing() && !GITHUB_TOKEN && !GROQ_KEY) {
     return { ok: false, reason: 'OPENROUTER_API_KEY not set in .env. Get one free: https://openrouter.ai/keys' };
