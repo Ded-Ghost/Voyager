@@ -212,7 +212,8 @@ const S={selected:null,muted:false,cmdCount:0,toolCount:0,history:[],routeMode:n
 /* ═══════ WEBSOCKET — receive live events from VOYAGER backend ═══════ */
 let ws = null;
 function connectWS(){
-  ws = new WebSocket(`ws://${location.host}`);
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}`);
   ws.onopen = () => stream('Connected to VOYAGER backend','WS');
   ws.onclose = () => { stream('Backend disconnected — retrying...','WS'); setTimeout(connectWS, 3000); };
   ws.onerror = () => {};
